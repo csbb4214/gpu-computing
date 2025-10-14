@@ -119,19 +119,19 @@ int main(int argc, char** argv) {
 	clEnqueueReadBuffer(queue, dC, CL_TRUE, 0, bytes, C, 0, NULL, NULL);
 
 	// Verification
-	int errors = 0;
+	int mistakes = 0;
 	for(size_t i = 0; i < N; i++) {
 		int expected = (i + 42) + (-i);
 		if(C[i] != expected) {
-			printf("Fehler bei Index %zu: %d != %d\n", i, C[i], expected);
-			if(++errors > 10) break;
+			printf("Mistake at Index %zu: %d != %d\n", i, C[i], expected);
+			if(++mistakes > 10) break;
 		}
 	}
 
-	if(errors == 0)
-		printf("Alle %zu Elemente korrekt!\n", N);
+	if(mistakes == 0)
+		printf("All %zu elements correct!\n", N);
 	else
-		printf("%d Fehler gefunden.\n", errors);
+		printf("%d Mistake found.\n", mistakes);
 
 	// Cleanup
 	clReleaseMemObject(dA);
