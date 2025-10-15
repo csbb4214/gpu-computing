@@ -19,8 +19,26 @@ All 100000000 elements correct!
 ### csbb4214 (Jonas Mayr - )
 
 
-### (Paul Gomig - )
+### csaw3646 (Paul Gomig - Intel Iris Xe Graphics, i7-1355U)
+All 100000 elements correct!
+real    0m0.421s
+user    0m0.061s
+sys     0m0.045s
 
+All 1000000 elements correct!
+real    0m0.387s
+user    0m0.060s
+sys     0m0.124s
+
+All 10000000 elements correct!
+real    0m0.385s
+user    0m0.061s
+sys     0m0.060s
+
+All 100000000 elements correct!
+real    0m1.287s
+user    0m0.076s
+sys     0m0.092s
 
 ## Cluster
 
