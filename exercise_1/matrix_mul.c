@@ -1,9 +1,10 @@
 #include <CL/cl.h>
 #include <errno.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <omp.h>
+
 
 #ifndef N
 #define N 1000
@@ -144,8 +145,8 @@ int main() {
 
 	const double start_time = omp_get_wtime();
 
-	size_t global_work_size[2] = { (size_t)N, (size_t)K };
-    clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
+	size_t global_work_size[2] = {(size_t)N, (size_t)K};
+	clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
 
 	// Read back result
 	clEnqueueReadBuffer(queue, dC, CL_TRUE, 0, N * K * sizeof(VALUE), C, 0, NULL, NULL);
