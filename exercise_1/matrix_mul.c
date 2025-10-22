@@ -114,6 +114,11 @@ int main() {
 	cl_mem dB = clCreateBuffer(context, CL_MEM_READ_WRITE, M * K * sizeof(VALUE), NULL, &err);
 	cl_mem dC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, N * K * sizeof(VALUE), NULL, &err);
 
+	clEnqueueWriteBuffer(queue, dA, CL_TRUE, 0, N * M * sizeof(VALUE), A, 0, NULL, NULL);
+	clEnqueueWriteBuffer(queue, dB, CL_TRUE, 0, M * K * sizeof(VALUE), B, 0, NULL, NULL);
+	clEnqueueWriteBuffer(queue, dC, CL_TRUE, 0, N * K * sizeof(VALUE), C, 0, NULL, NULL);
+
+
 	// Program from file source
 	const char* sources[] = {kernel_source};
 	const size_t lengths[] = {kernel_size};
