@@ -1,4 +1,6 @@
-# Double
+# Lokal
+
+## Double
 | Implementierung      | Matrixgröße | Verifikation | Zeit [ms]  | Bemerkung               |
 |----------------------|--------------|---------------|-------------|--------------------------|
 | `matrix_mul`         | 512          | OK            | 512.229     | CPU (seriell)           |
@@ -14,7 +16,7 @@
 | `matrix_mul_N`       | 2048         | OK            | 3097.458    | GPU (OpenCL Kernel)     |
 | `matrix_mul_N`       | 2000         | OK            | 14772.399   | GPU (OpenCL Kernel)     |
 
-# Float
+## Float
 | Implementierung      | Matrixgröße | Verifikation | Zeit [ms]  | Bemerkung               |
 |----------------------|------------|--------------|------------|------------------------|
 | `matrix_mul`         | 512        | OK           | 258.660    | CPU (seriell)          |
@@ -29,4 +31,40 @@
 | `matrix_mul_N`       | 1024       | OK           | 346.558    | GPU (OpenCL Kernel)    |
 | `matrix_mul_N`       | 2000       | OK           | 2139.194   | GPU (OpenCL Kernel)    |
 | `matrix_mul_N`       | 2048       | OK           | 11871.306  | GPU (OpenCL Kernel)    |
+
+
+# Cluster
+
+## Double
+| Implementierung | Matrixgröße | Verifikation | Zeit [ms] | Bemerkung                  |
+|-----------------|-------------|--------------|-----------|----------------------------|
+| matrix_mul          | 512        | OK           | 673.174   | Seriell        |
+| matrix_mul          | 1024       | OK           | 700.706   | Seriell        |
+| matrix_mul          | 2000       | OK           | 695.000   | Seriell        |
+| matrix_mul          | 2048       | OK           | 694.111   | Seriell        |
+| matrix_mul_omp      | 512        | OK           | 1651.630  | OpenMP         |
+| matrix_mul_omp      | 1024       | OK           | 1613.575  | OpenMP         |
+| matrix_mul_omp      | 2000       | OK           | 1640.874  | OpenMP         |
+| matrix_mul_omp      | 2048       | OK           | 1591.067  | OpenMP         |
+| `matrix_mul_N`  | 512         | OK           | 6.359     | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 1024        | OK           | 47.761    | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 2000        | OK           | 381.980   | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 2048        | OK           | 290.469   | GPU (RTX 2070, OpenCL)     |
+
+
+## Float
+| Implementierung | Matrixgröße |Verifikation | Zeit [ms] | Bemerkung                  |
+|-----------------|-------------|--------------|-----------|----------------------------|
+|matrix_mul          | 512        | OK           | 282.317   | Seriell        |
+|matrix_mul          | 1024       | OK           | 281.678   | Seriell        |
+| matrix_mul          | 2000       | OK           | 279.857   | Seriell        |
+| matrix_mul          | 2048       | OK           | 285.076   | Seriell        |
+| matrix_mul_omp      | 512        | OK           | 721.991   | OpenMP         |
+| matrix_mul_omp      | 1024       | OK           | 723.273   | OpenMP         |
+| matrix_mul_omp      | 2000       | OK           | 762.201   | OpenMP         |
+| matrix_mul_omp      | 2048       | OK           | 762.105   | OpenMP         |
+| `matrix_mul_N`  | 512         | OK           | 5.983     | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 1024        | OK           | 45.594    | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 2000        | OK           | 222.784   | GPU (RTX 2070, OpenCL)     |
+| `matrix_mul_N`  | 2048        | OK           | 263.740   | GPU (RTX 2070, OpenCL)     |
 
