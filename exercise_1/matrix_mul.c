@@ -15,7 +15,13 @@
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 
+#if defined(USE_DOUBLE)
 #define VALUE double
+#define KERNEL_NAME "matrix_mul_double"
+#else
+#define VALUE float
+#define KERNEL_NAME "matrix_mul_float"
+#endif
 
 VALUE A[N * M];
 VALUE B[M * K];
@@ -74,14 +80,14 @@ int main() {
 	// A contains real values
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < M; j++) {
-			A[i * N + j] = i * j;
+			A[i * M + j] = i * j;
 		}
 	}
 
 	// B is the identity matrix
 	for(int i = 0; i < M; i++) {
 		for(int j = 0; j < K; j++) {
-			B[i * M + j] = (i == j) ? 1 : 0;
+			B[i * K + j] = (i == j) ? 1 : 0;
 		}
 	}
 
@@ -107,8 +113,6 @@ int main() {
 	cl_mem dA = clCreateBuffer(context, CL_MEM_READ_WRITE, N * M * sizeof(VALUE), NULL, &err);
 	cl_mem dB = clCreateBuffer(context, CL_MEM_READ_WRITE, M * K * sizeof(VALUE), NULL, &err);
 	cl_mem dC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, N * K * sizeof(VALUE), NULL, &err);
-	cl_mem dm = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_int), NULL, &err);
-	cl_mem dk = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_int), NULL, &err);
 
 	// Program from file source
 	const char* sources[] = {kernel_source};
@@ -126,12 +130,12 @@ int main() {
 	}
 
 	// Kernel
-	cl_kernel kernel = clCreateKernel(program, "matrix_mul", &err);
+	cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), &dA);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), &dB);
 	clSetKernelArg(kernel, 2, sizeof(cl_mem), &dC);
-	clSetKernelArg(kernel, 3, sizeof(cl_mem), &dm);
-	clSetKernelArg(kernel, 4, sizeof(cl_mem), &dk);
+	clSetKernelArg(kernel, 3, sizeof(cl_int), &m);
+	clSetKernelArg(kernel, 4, sizeof(cl_int), &k);
 
 	const double start_time = omp_get_wtime();
 
@@ -163,8 +167,6 @@ int main() {
 	clReleaseMemObject(dA);
 	clReleaseMemObject(dB);
 	clReleaseMemObject(dC);
-	clReleaseMemObject(dm);
-	clReleaseMemObject(dk);
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	clReleaseCommandQueue(queue);
