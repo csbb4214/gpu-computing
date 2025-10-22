@@ -1,15 +1,20 @@
 CC=gcc
-CFLAGS=-std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300
-LIBS=-lOpenCL
+CFLAGS=-std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -O3
+LIBS=-lOpenCL -lgomp
 
-all: matrix_mul
+FLAGS=
+SUFFIX=
+ifdef N
+FLAGS+=-DN=$(N)
+SUFFIX:=_N$(N)
+endif
 
-matrix_mul: matrix_mul.c
+all: matrix_mul$(SUFFIX)
 
-% : %.c
-	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
+matrix_mul$(SUFFIX): matrix_mul.c $(DEPS)
+	$(CC) -o $@ $< $(CFLAGS) $(LIBS) $(FLAGS)
 
 clean:
-	rm -f matrix_mul
+	find . -executable -type f -regextype posix-egrep -regex "./matrix_mul(_omp)?(_N[0-9]+)?" -delete
 
 .PHONY: all clean

@@ -3,6 +3,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
+
+#ifndef N
+#define N 1000
+#endif
+
+#define M N
+#define K N
+
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+
+#define VALUE double
+
+VALUE A[N * M];
+VALUE B[M * K];
+VALUE C[N * K];
+
+const cl_int m = M;
+const cl_int k = K;
 
 static char* load_kernel_source(const char* path, size_t* out_size) {
 	FILE* file = fopen(path, "rb");
@@ -48,21 +68,25 @@ static char* load_kernel_source(const char* path, size_t* out_size) {
 }
 
 int main(int argc, char** argv) {
-	if(argc < 2) {
-		fprintf(stderr, "Usage: %s <array_size>\n", argv[0]);
-		return EXIT_FAILURE;
+	// initialize C matrix to zero
+	memset(C, 0, sizeof(C));
+
+	// A contains real values
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < M; j++) {
+			A[i * N + j] = i * j;
+		}
 	}
 
-	size_t N = atoi(argv[1]);
-	size_t bytes = N * sizeof(int);
-	int* C = (int*)malloc(bytes);
-	if(!C) {
-		fprintf(stderr, "Failed to allocate host memory\n");
-		return EXIT_FAILURE;
+	// B is the identity matrix
+	for(int i = 0; i < M; i++) {
+		for(int j = 0; j < K; j++) {
+			B[i * M + j] = (i == j) ? 1 : 0;
+		}
 	}
 
 	// Load kernel source
-	const char kernel_path[] = "./array_sum.cl";
+	const char kernel_path[] = "./matrix_mul.cl";
 	size_t kernel_size = 0;
 	char* kernel_source = load_kernel_source(kernel_path, &kernel_size);
 	if(kernel_source == NULL) return EXIT_FAILURE;
@@ -80,9 +104,11 @@ int main(int argc, char** argv) {
 	cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, NULL, &err);
 
 	// Buffers
-	cl_mem dA = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, NULL, &err);
-	cl_mem dB = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, NULL, &err);
-	cl_mem dC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
+	cl_mem dA = clCreateBuffer(context, CL_MEM_READ_WRITE, N * M * sizeof(VALUE), NULL, &err);
+	cl_mem dB = clCreateBuffer(context, CL_MEM_READ_WRITE, M * K * sizeof(VALUE), NULL, &err);
+	cl_mem dC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, N * K * sizeof(VALUE), NULL, &err);
+	cl_mem dm = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_int), NULL, &err);
+	cl_mem dk = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_int), NULL, &err);
 
 	// Program from file source
 	const char* sources[] = {kernel_source};
@@ -99,46 +125,47 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	// Kernel 1
-	cl_kernel k_init = clCreateKernel(program, "init_arrays", &err);
-	clSetKernelArg(k_init, 0, sizeof(cl_mem), &dA);
-	clSetKernelArg(k_init, 1, sizeof(cl_mem), &dB);
+	// Kernel
+	cl_kernel kernel = clCreateKernel(program, "matrix_mul", &err);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), &dA);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &dB);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &dC);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &dm);
+	clSetKernelArg(kernel, 4, sizeof(cl_mem), &dk);
 
-	size_t globalSize = N;
-	clEnqueueNDRangeKernel(queue, k_init, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
+	const double start_time = omp_get_wtime();
 
-	// Kernel 2
-	cl_kernel k_add = clCreateKernel(program, "add_arrays", &err);
-	clSetKernelArg(k_add, 0, sizeof(cl_mem), &dA);
-	clSetKernelArg(k_add, 1, sizeof(cl_mem), &dB);
-	clSetKernelArg(k_add, 2, sizeof(cl_mem), &dC);
-
-	clEnqueueNDRangeKernel(queue, k_add, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
+	size_t global_work_size[2] = { (size_t)N, (size_t)K };
+    clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
 
 	// Read back result
-	clEnqueueReadBuffer(queue, dC, CL_TRUE, 0, bytes, C, 0, NULL, NULL);
+	clEnqueueReadBuffer(queue, dC, CL_TRUE, 0, N * K * sizeof(VALUE), C, 0, NULL, NULL);
 
-	// Verification
-	int mistakes = 0;
-	for(size_t i = 0; i < N; i++) {
-		int expected = (i + 42) + (-i);
-		if(C[i] != expected) {
-			printf("Mistake at Index %zu: %d != %d\n", i, C[i], expected);
-			if(++mistakes > 10) break;
+	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
+
+
+	// verify result
+	int success = 1;
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < MIN(M, K); j++) {
+			if(A[i * N + j] != C[i * N + j]) { success = 0; }
+		}
+		for(int j = MIN(M, K); j < MAX(M, K); j++) {
+			if(C[i * N + j] != 0) { success = 0; }
 		}
 	}
 
-	if(mistakes == 0)
-		printf("All %zu elements correct!\n", N);
-	else
-		printf("%d Mistake found.\n", mistakes);
+	// print verification result
+	printf("Verification: %4s\n", (success) ? "OK" : "ERR");
+	printf("Time: %9.3f ms\n", elapsed_ms);
 
 	// Cleanup
 	clReleaseMemObject(dA);
 	clReleaseMemObject(dB);
 	clReleaseMemObject(dC);
-	clReleaseKernel(k_init);
-	clReleaseKernel(k_add);
+	clReleaseMemObject(dm);
+	clReleaseMemObject(dk);
+	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
