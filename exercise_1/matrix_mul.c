@@ -67,7 +67,7 @@ static char* load_kernel_source(const char* path, size_t* out_size) {
 	return buffer;
 }
 
-int main(int argc, char** argv) {
+int main() {
 	// initialize C matrix to zero
 	memset(C, 0, sizeof(C));
 
@@ -169,7 +169,6 @@ int main(int argc, char** argv) {
 	clReleaseProgram(program);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
-	free(C);
 	free(kernel_source);
 
 	return EXIT_SUCCESS;
