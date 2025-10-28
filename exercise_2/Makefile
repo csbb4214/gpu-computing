@@ -4,6 +4,9 @@ LDFLAGS=
 DEPS=clu_errcheck.h
 LIBS=-lOpenCL -lm -lgomp
 
+# use double: 	make all N=1024 IT=100
+# use float: 	make all N=1024 IT=100 FLOAT=1
+
 FLAGS=
 SUFFIX=
 ifdef N
@@ -14,11 +17,15 @@ ifdef IT
 FLAGS+=-DIT=$(IT)
 SUFFIX:=$(SUFFIX)_IT$(IT)
 endif
+ifdef FLOAT
+FLAGS+=-DFLOAT
+SUFFIX:=$(SUFFIX)_float
+endif
 
 ifeq ($(OS),Windows_NT)
 CLEAN=del /Q jacobi*.exe
 else
-CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?" -delete
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?(_float)?" -delete
 endif
 
 all: jacobi$(SUFFIX) jacobi_omp$(SUFFIX) jacobi_ocl$(SUFFIX)

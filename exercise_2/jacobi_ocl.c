@@ -13,8 +13,11 @@
 #ifndef IT
 #define IT 100
 #endif
-
+#ifdef FLOAT
+#define VALUE float
+#else
 #define VALUE double
+#endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
 
@@ -135,6 +138,18 @@ int main(void) {
 
 	// TODO: read back results from device "dst" to host "u" (make sure result is actually in "dst")
 	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, dst, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+
+	// TODO: timing
+	const double start_time = omp_get_wtime();
+	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
+
+	#ifdef FLOAT
+	const char* prec = "float";
+	#else
+	const char* prec = "double";
+	#endif
+
+	printf("opencl,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
 
 	CLU_ERRCHECK(clFlush(command_queue));
 	CLU_ERRCHECK(clFinish(command_queue));
