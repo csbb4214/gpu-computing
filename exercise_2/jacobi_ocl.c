@@ -1,11 +1,26 @@
 #include <errno.h>
+#include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "clu_errcheck.h"
 
-#define MEM_SIZE 128
+#ifndef N
+#define N 1024
+#endif
+#ifndef IT
+#define IT 100
+#endif
+
+#define VALUE double
+
+VALUE u[N][N], tmp[N][N], f[N][N];
+
+VALUE init_func(int x, int y) {
+	return 40 * sin((VALUE)(16 * (2 * x - 1) * y));
+}
 
 static char* load_kernel_source(const char* path, size_t* out_size) {
 	FILE* file = fopen(path, "rb");
@@ -71,8 +86,29 @@ int main(void) {
 	cl_command_queue command_queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
 	CLU_ERRCHECK(err);
 
-	cl_mem memobj = clCreateBuffer(context, CL_MEM_READ_WRITE, MEM_SIZE, NULL, &err);
+	// init matrix
+	memset(u, 0, sizeof(u));
+
+	// init F
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < N; j++) {
+			f[i][j] = init_func(i, j);
+		}
+	}
+
+	const VALUE factor = pow((VALUE)1 / N, 2);
+
+	const size_t bytes = sizeof(VALUE) * N * N;
+
+	cl_mem buf_u = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
+	cl_mem buf_tmp = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, NULL, &err);
+	CLU_ERRCHECK(err);
+	cl_mem buf_f = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
+	CLU_ERRCHECK(err);
+
+	clEnqueueWriteBuffer(command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL);
+	clEnqueueWriteBuffer(command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, NULL);
 
 	const char* sources[] = {source_str};
 	const size_t lengths[] = {source_size};
@@ -86,21 +122,27 @@ int main(void) {
 	cl_kernel kernel = clCreateKernel(program, "jacobi", &err);
 	CLU_ERRCHECK(err);
 
-	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&memobj));
+	// TODO: set kernel arguments
+	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_f));
 
-	const size_t global_work_size[] = {1U};
-	CLU_ERRCHECK(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL));
+	// TODO: change work size
+	const size_t global_work_size[] = {(size_t)N, (size_t)N};
+	CLU_ERRCHECK(clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL));
 
-	char string[MEM_SIZE] = {0};
-	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, memobj, CL_TRUE, 0, sizeof(string), string, 0, NULL, NULL));
+	// TODO: main Jacobi loop
+	cl_mem src = buf_u;
+	cl_mem dst = buf_tmp;
 
-	puts(string);
+	// TODO: read back results from device "dst" to host "u" (make sure result is actually in "dst")
+	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, dst, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
 
 	CLU_ERRCHECK(clFlush(command_queue));
 	CLU_ERRCHECK(clFinish(command_queue));
 	CLU_ERRCHECK(clReleaseKernel(kernel));
 	CLU_ERRCHECK(clReleaseProgram(program));
-	CLU_ERRCHECK(clReleaseMemObject(memobj));
+	CLU_ERRCHECK(clReleaseMemObject(buf_u));
+	CLU_ERRCHECK(clReleaseMemObject(buf_tmp));
+	CLU_ERRCHECK(clReleaseMemObject(buf_f));
 	CLU_ERRCHECK(clReleaseCommandQueue(command_queue));
 	CLU_ERRCHECK(clReleaseContext(context));
 

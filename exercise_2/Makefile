@@ -16,9 +16,9 @@ SUFFIX:=$(SUFFIX)_IT$(IT)
 endif
 
 ifeq ($(OS),Windows_NT)
-	CLEAN=del /Q jacobi*.exe
+CLEAN=del /Q jacobi*.exe
 else
-	CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?" -delete
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?" -delete
 endif
 
 all: jacobi$(SUFFIX) jacobi_omp$(SUFFIX) jacobi_ocl$(SUFFIX)
