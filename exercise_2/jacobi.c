@@ -11,10 +11,8 @@
 #ifndef IT
 #define IT 100
 #endif
-#ifdef FLOAT
+#ifndef VALUE
 #define VALUE float
-#else
-#define VALUE double
 #endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
@@ -40,9 +38,9 @@ int main(void) {
 
 	// main Jacobi loop
 	for(int it = 0; it < IT; it++) {
-	#ifdef _OPENMP
-	#pragma omp parallel for
-	#endif
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
 		for(int i = 1; i < N - 1; i++) {
 			for(int j = 1; j < N - 1; j++) {
 				tmp[i][j] = (VALUE)1 / 4 * (u[i - 1][j] + u[i][j + 1] + u[i][j - 1] + u[i + 1][j] - factor * f[i][j]);
@@ -53,17 +51,17 @@ int main(void) {
 
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
-	#ifdef FLOAT
+#if VALUE == float
 	const char* prec = "float";
-	#else
+#else
 	const char* prec = "double";
-	#endif
+#endif
 
-	#ifdef _OPENMP
+#ifdef _OPENMP
 	printf("openmp,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
-	#else
+#else
 	printf("serial,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
-	#endif
+#endif
 
 	return EXIT_SUCCESS;
 }

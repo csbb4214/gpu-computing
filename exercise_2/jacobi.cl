@@ -1,3 +1,10 @@
+#ifdef cl_khr_fp64
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#else
+/* cl_khr_fp64 is not available; double-precision kernel will be excluded. */
+#endif
+
+#ifdef cl_khr_fp64
 __kernel void jacobi_step_double(const __global double* u, __global double* tmp, const __global double* f, const double factor) {
 	int i = get_global_id(0);
 	int j = get_global_id(1);
@@ -14,6 +21,7 @@ __kernel void jacobi_step_double(const __global double* u, __global double* tmp,
 
 	tmp[idx] = (double)1 / 4 * (u[up] + u[down] + u[left] + u[right] - factor * f[idx]);
 }
+#endif
 
 __kernel void jacobi_step_float(const __global float* u, __global float* tmp, const __global float* f, const float factor) {
 	int i = get_global_id(0);

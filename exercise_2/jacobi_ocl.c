@@ -13,10 +13,11 @@
 #ifndef IT
 #define IT 100
 #endif
-#ifdef FLOAT
+#ifndef VALUE
 #define VALUE float
+#define KERNEL_NAME "jacobi_step_float"
 #else
-#define VALUE double
+#define KERNEL_NAME "jacobi_step_double"
 #endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
@@ -110,8 +111,7 @@ int main(void) {
 	cl_mem buf_f = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 
-	clEnqueueWriteBuffer(command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL);
-	clEnqueueWriteBuffer(command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, NULL);
+	CLU_ERRCHECK(clEnqueueWriteBuffer(command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, NULL));
 
 	const char* sources[] = {source_str};
 	const size_t lengths[] = {source_size};
@@ -122,32 +122,34 @@ int main(void) {
 	if(err != CL_SUCCESS) { cluPrintProgramBuildLog(program, device_id); }
 	CLU_ERRCHECK(err);
 
-	cl_kernel kernel = clCreateKernel(program, "jacobi", &err);
+	cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
 	CLU_ERRCHECK(err);
 
-	// TODO: set kernel arguments
-	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_f));
 
-	// TODO: change work size
-	const size_t global_work_size[] = {(size_t)N, (size_t)N};
-	CLU_ERRCHECK(clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&buf_f));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
 
-	// TODO: main Jacobi loop
-	cl_mem src = buf_u;
-	cl_mem dst = buf_tmp;
-
-	// TODO: read back results from device "dst" to host "u" (make sure result is actually in "dst")
-	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, dst, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-
-	// TODO: timing
 	const double start_time = omp_get_wtime();
+
+	const size_t global_work_size[2] = {(size_t)(N - 1), (size_t)(N - 1)};
+	for(int it = 0; it < IT; it++) {
+		CLU_ERRCHECK(clEnqueueWriteBuffer(command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+
+		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
+		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_tmp));
+
+		CLU_ERRCHECK(clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL));
+
+		CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	}
+
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
-	#ifdef FLOAT
+#if VALUE == float
 	const char* prec = "float";
-	#else
+#else
 	const char* prec = "double";
-	#endif
+#endif
 
 	printf("opencl,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
 
