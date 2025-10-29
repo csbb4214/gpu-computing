@@ -1,3 +1,10 @@
+#ifdef cl_khr_fp64
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#else
+/* cl_khr_fp64 is not available; double-precision kernel will be excluded. */
+#endif
+
+#ifdef cl_khr_fp64
 __kernel void matrix_mul_double(const __global double* A, const __global double* B, __global double* C, const int M, const int K) {
 	int row = get_global_id(0); // Row index in C
 	int col = get_global_id(1); // Column index in C
@@ -11,6 +18,7 @@ __kernel void matrix_mul_double(const __global double* A, const __global double*
 
 	C[row * K + col] = sum; // C[row][col] = sum
 }
+#endif
 
 __kernel void matrix_mul_float(const __global float* A, const __global float* B, __global float* C, const int M, const int K) {
 	int row = get_global_id(0); // Row index in C
