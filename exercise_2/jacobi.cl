@@ -1,18 +1,33 @@
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
+__kernel void jacobi_step_double(const __global double* u, __global double* tmp, const __global double* f, const double factor) {
+	int i = get_global_id(0);
+	int j = get_global_id(1);
 
-__kernel void jacobi(__global char* string) {
-	string[0] = 'H';
-	string[1] = 'e';
-	string[2] = 'l';
-	string[3] = 'l';
-	string[4] = 'o';
-	string[5] = ',';
-	string[6] = ' ';
-	string[7] = 'W';
-	string[8] = 'o';
-	string[9] = 'r';
-	string[10] = 'l';
-	string[11] = 'd';
-	string[12] = '!';
-	string[13] = '\0';
+	int N = get_global_size(0); // assume square
+
+	if(i == 0 || i == N - 1 || j == 0 || j == N - 1) return;
+
+	int idx = i * N + j;
+	int up = (i - 1) * N + j;
+	int down = (i + 1) * N + j;
+	int left = i * N + (j - 1);
+	int right = i * N + (j + 1);
+
+	tmp[idx] = (double)1 / 4 * (u[up] + u[down] + u[left] + u[right] - factor * f[idx]);
+}
+
+__kernel void jacobi_step_float(const __global float* u, __global float* tmp, const __global float* f, const float factor) {
+	int i = get_global_id(0);
+	int j = get_global_id(1);
+
+	int N = get_global_size(0); // assume square
+
+	if(i == 0 || i == N - 1 || j == 0 || j == N - 1) return;
+
+	int idx = i * N + j;
+	int up = (i - 1) * N + j;
+	int down = (i + 1) * N + j;
+	int left = i * N + (j - 1);
+	int right = i * N + (j + 1);
+
+	tmp[idx] = (float)1 / 4 * (u[up] + u[down] + u[left] + u[right] - factor * f[idx]);
 }
