@@ -134,6 +134,7 @@ int main(void) {
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
 
 	const double start_time = omp_get_wtime();
+	CLU_ERRCHECK(clEnqueueWriteBuffer(command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
 
 	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
 #if VERSION == 1
