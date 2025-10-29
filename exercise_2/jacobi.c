@@ -53,6 +53,14 @@ int main(void) {
 
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
+	// Calculate checksum
+	VALUE checksum = 0;
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < N; j++) {
+			checksum += u[i][j];
+		}
+	}
+
 #ifdef FLOAT
 	const char* prec = "float";
 #else
@@ -60,9 +68,9 @@ int main(void) {
 #endif
 
 #ifdef _OPENMP
-	printf("openmp,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
+	printf("openmp,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
 #else
-	printf("serial,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
+	printf("serial,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
 #endif
 
 	return EXIT_SUCCESS;

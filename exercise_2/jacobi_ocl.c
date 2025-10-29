@@ -135,7 +135,7 @@ int main(void) {
 
 	const double start_time = omp_get_wtime();
 
-	const size_t global_work_size[2] = {(size_t)(N - 1), (size_t)(N - 1)};
+	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
 #if VERSION == 1
 	for(int it = 0; it < IT; it++) {
 		CLU_ERRCHECK(clEnqueueWriteBuffer(command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
@@ -163,6 +163,14 @@ int main(void) {
 
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
+	// Calculate checksum
+	VALUE checksum = 0;
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < N; j++) {
+			checksum += u[i][j];
+		}
+	}
+
 #ifdef FLOAT
 	const char* prec = "float";
 #else
@@ -170,9 +178,9 @@ int main(void) {
 #endif
 
 #if VERSION == 1
-	printf("opencl_V1,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
+	printf("opencl_V1,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
 #else
-	printf("opencl_V2,%s,%d,%d,%.3f\n", prec, N, IT, elapsed_ms);
+	printf("opencl_V2,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
 #endif
 
 	CLU_ERRCHECK(clFlush(command_queue));
