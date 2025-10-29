@@ -158,15 +158,15 @@ int main(void) {
 		buf_u = buf_tmp;
 		buf_tmp = temp;
 	}
-	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueReadBuffer(command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
 #endif
 
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
 	// Calculate checksum
 	VALUE checksum = 0;
-	for(int i = 0; i < N; i++) {
-		for(int j = 0; j < N; j++) {
+	for(int i = 1; i < N - 1; i++) {
+		for(int j = 1; j < N - 1; j++) {
 			checksum += u[i][j];
 		}
 	}
