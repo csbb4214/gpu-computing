@@ -1,0 +1,13 @@
+[INFO] Running double N=1024 IT=10
+[INFO] Running float N=1024 IT=10
+[INFO] Running double N=1024 IT=100
+[INFO] Running float N=1024 IT=100
+[INFO] Running double N=1024 IT=1000
+[INFO] Running float N=1024 IT=1000
+[INFO] Running double N=2048 IT=10
+[INFO] Running float N=2048 IT=10
+[INFO] Running double N=2048 IT=100
+[INFO] Running float N=2048 IT=100
+[INFO] Running double N=2048 IT=1000
+[INFO] Running float N=2048 IT=1000
+[DONE] Results written to results.csv
