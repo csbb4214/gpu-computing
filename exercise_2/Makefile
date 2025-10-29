@@ -18,7 +18,7 @@ FLAGS+=-DIT=$(IT)
 SUFFIX:=$(SUFFIX)_IT$(IT)
 endif
 ifdef VALUE
-FLAGS+=-D$(VALUE)
+FLAGS+=-DVALUE=$(VALUE)
 SUFFIX:=$(SUFFIX)_$(VALUE)
 endif
 
