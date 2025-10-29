@@ -25,10 +25,10 @@ endif
 ifeq ($(OS),Windows_NT)
 CLEAN=del /Q jacobi*.exe
 else
-CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?(_float)?" -delete
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi(_omp|_ocl)?(_N[0-9]+)?(_IT[0-9]+)?(_float)?(_V[0-9])?" -delete
 endif
 
-all: jacobi$(SUFFIX) jacobi_omp$(SUFFIX) jacobi_ocl$(SUFFIX)
+all: jacobi$(SUFFIX) jacobi_omp$(SUFFIX) jacobi_ocl$(SUFFIX)_V1 jacobi_ocl$(SUFFIX)_V2
 
 jacobi_omp$(SUFFIX): jacobi.c
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -fopenmp
@@ -36,8 +36,11 @@ jacobi_omp$(SUFFIX): jacobi.c
 jacobi$(SUFFIX): jacobi.c
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
 
-jacobi_ocl$(SUFFIX): jacobi_ocl.c $(DEPS)
-	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
+jacobi_ocl$(SUFFIX)_V1: jacobi_ocl.c $(DEPS)
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=1
+
+jacobi_ocl$(SUFFIX)_V2: jacobi_ocl.c $(DEPS)
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2
 
 clean:
 	$(CLEAN)

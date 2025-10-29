@@ -29,7 +29,9 @@ for %%N in (%N_VALUES%) do (
 
     call ".\jacobi_N%%N_IT%%I.exe" >> "%RESULTS%"
     call ".\jacobi_omp_N%%N_IT%%I.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_V1.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
+
 
     rem --- float precision ---
 
@@ -45,7 +47,8 @@ for %%N in (%N_VALUES%) do (
 
     call ".\jacobi_N%%N_IT%%I_float.exe" >> "%RESULTS%"
     call ".\jacobi_omp_N%%N_IT%%I_float.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I_float.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_V1.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
 
   )
 )
