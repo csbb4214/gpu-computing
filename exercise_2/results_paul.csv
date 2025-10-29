@@ -1,4 +1,4 @@
-mode,precision,N,IT,time_ms 
+mode,precision,N,IT,time_ms,checksum
 serial,double,1024,10,29.000,-1.226228037714358e-01
 openmp,double,1024,10,18.000,-1.226228037714358e-01
 serial,float,1024,10,14.000,-1.226259991526604e-01

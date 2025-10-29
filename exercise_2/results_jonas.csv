@@ -1,4 +1,4 @@
-mode,precision,N,IT,time_ms 
+mode,precision,N,IT,time_ms,checksum
 serial,double,1024,10,16.000,-1.226228037714326e-01
 openmp,double,1024,10,12.000,-1.226228037714326e-01
 opencl_V1,double,1024,10,44.000,-1.226228037714328e-01
