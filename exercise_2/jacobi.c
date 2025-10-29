@@ -11,8 +11,10 @@
 #ifndef IT
 #define IT 100
 #endif
-#ifndef VALUE
+#ifdef FLOAT
 #define VALUE float
+#else
+#define VALUE double
 #endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
@@ -51,7 +53,7 @@ int main(void) {
 
 	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
-#if VALUE == float
+#ifdef FLOAT
 	const char* prec = "float";
 #else
 	const char* prec = "double";
