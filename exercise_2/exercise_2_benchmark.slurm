@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=jacobi_benchmark
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=32
+#SBATCH --memory=10000
 #SBATCH --partition=IFIgpu2070
 #SBATCH --gres=gpu:1
 #SBATCH --error=jacobi_benchmark.%j.err
