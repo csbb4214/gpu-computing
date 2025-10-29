@@ -47,14 +47,14 @@ for %%N in (%N_VALUES%) do (
 
     call ".\jacobi_N%%N_IT%%I_float.exe" >> "%RESULTS%"
     call ".\jacobi_omp_N%%N_IT%%I_float.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I_V1.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_float_V1.exe" >> "%RESULTS%"
+    call ".\jacobi_ocl_N%%N_IT%%I_float_V2.exe" >> "%RESULTS%"
 
   )
 )
 
 rem --- cleanup ---
-timeout /t 2 > nul
+timeout /t 10 > nul
 call mingw32-make clean
 
 echo [DONE] Results written to "%RESULTS%".
