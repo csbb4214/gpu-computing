@@ -9,54 +9,77 @@ set RESULTS=results.csv
 set N_VALUES=1024 2048
 set IT_VALUES=10 100 1000
 
+rem --- clean build log ---
+if exist build.log del build.log
+
 rem --- CSV header ---
 echo mode,precision,N,IT,time_ms,checksum > "%RESULTS%"
 
 for %%N in (%N_VALUES%) do (
   for %%I in (%IT_VALUES%) do (
 
+    rem ------------------------
     rem --- double precision ---
+    rem ------------------------
 
     echo [INFO] Building double N=%%N IT=%%I 
 
-    call mingw32-make all N=%%N IT=%%I > build.log 2>&1
+    call mingw32-make all N=%%N IT=%%I > build_temp.log 2>&1
     if errorlevel 1 (
       echo [ERROR] Build failed for double N=%%N IT=%%I
+      type build_temp.log >> build.log
+      del build_temp.log
       exit /b 1
     )
+
+    rem Check for warnings
+    findstr /i /c:"warning" build_temp.log >nul
+    if not errorlevel 1 (
+      echo [WARNING] Build warnings for double N=%%N IT=%%I
+      type build_temp.log >> build.log
+    )
+    del build_temp.log
 
     echo [INFO] Running double binaries...
 
-    call ".\jacobi_N%%N_IT%%I.exe" >> "%RESULTS%"
-    call ".\jacobi_omp_N%%N_IT%%I.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I_V1.exe" >> "%RESULTS%"
     call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
 
-
+    rem -----------------------
     rem --- float precision ---
+    rem -----------------------
 
     echo [INFO] Building float N=%%N IT=%%I
 
-    call mingw32-make all N=%%N IT=%%I FLOAT=1 > build.log 2>&1
+    call mingw32-make all N=%%N IT=%%I FLOAT=1 > build_temp.log 2>&1
     if errorlevel 1 (
       echo [ERROR] Build failed for float N=%%N IT=%%I
+      type build_temp.log >> build.log
+      del build_temp.log
       exit /b 1
     )
 
+    rem Check for warnings
+    findstr /i /c:"warning" build_temp.log >nul
+    if not errorlevel 1 (
+      echo [WARNING] Build warnings for double N=%%N IT=%%I
+      type build_temp.log >> build.log
+    )
+    del build_temp.log
+
     echo [INFO] Running float binaries...
 
-    call ".\jacobi_N%%N_IT%%I_float.exe" >> "%RESULTS%"
-    call ".\jacobi_omp_N%%N_IT%%I_float.exe" >> "%RESULTS%"
-    call ".\jacobi_ocl_N%%N_IT%%I_float_V1.exe" >> "%RESULTS%"
     call ".\jacobi_ocl_N%%N_IT%%I_float_V2.exe" >> "%RESULTS%"
 
   )
 )
 
 rem --- cleanup ---
-timeout /t 10 > nul
+timeout /t 5 > nul
 call mingw32-make clean
 
 echo [DONE] Results written to "%RESULTS%".
+if exist build.log (
+ echo [NOTE] Warnings/errors logged to build.log
+)
 endlocal
 exit /b 0
