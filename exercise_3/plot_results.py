@@ -127,12 +127,144 @@ for prec in precision_vals:
     outpath = os.path.join(OUT_DIR, f"IFI_times_{prec}.png")
     plt.savefig(outpath, dpi=150)
 
-    # Log-y version
-    ax.set_yscale('log')
-    ax.set_ylabel("time (ms) [log scale]")
-    ax.grid(which='both', alpha=0.25)
-    outpath_log = os.path.join(OUT_DIR, f"IFI_times_{prec}_log.png")
-    plt.savefig(outpath_log, dpi=150)
+
+
+# 4) Graph: kernel time over iterations for each device - float
+Ns = [1024, 2048]
+devices = ["paul", "jonas", "peter", "ifi"]
+
+for N in Ns:
+    fig, ax = plt.subplots(figsize=(10,6))
+
+    colors = sns.color_palette("tab10", n_colors=len(devices))
+    for i, dev in enumerate(devices):
+        filepath = f"results/kernel_times_N{N}_IT1000_float_{dev}.csv"
+        if not os.path.exists(filepath):
+            print(f"⚠️ Missing file: {filepath}")
+            continue
+
+        dfk = pd.read_csv(filepath)
+        ax.plot(
+            dfk["iteration"], dfk["kernel_time_ms"],
+            label=dev,
+            color=colors[i],
+            linewidth=2.0,
+            alpha=0.9
+        )
+
+    ax.set_title(f"Kernel time per iteration — N={N}, IT=1000, precision=float")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Kernel Time (ms)")
+    ax.grid(alpha=0.25)
+    ax.legend(title="device")
+    plt.tight_layout()
+
+    outpath = os.path.join(OUT_DIR, f"kernel_times_N{N}_IT1000_float_all.png")
+    plt.savefig(outpath, dpi=150)
     plt.close(fig)
+
+# 5) Graph: kernel time over iterations for each device - float (without paul)
+Ns = [1024, 2048]
+devices = ["jonas", "peter", "ifi"]
+
+for N in Ns:
+    fig, ax = plt.subplots(figsize=(10,6))
+
+    colors = sns.color_palette("tab10", n_colors=len(devices))
+    for i, dev in enumerate(devices):
+        filepath = f"results/kernel_times_N{N}_IT1000_float_{dev}.csv"
+        if not os.path.exists(filepath):
+            print(f"⚠️ Missing file: {filepath}")
+            continue
+
+        dfk = pd.read_csv(filepath)
+        ax.plot(
+            dfk["iteration"], dfk["kernel_time_ms"],
+            label=dev,
+            color=colors[i],
+            linewidth=2.0,
+            alpha=0.9
+        )
+
+    ax.set_title(f"Kernel time per iteration — N={N}, IT=1000, precision=float")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Kernel Time (ms)")
+    ax.grid(alpha=0.25)
+    ax.legend(title="device")
+    plt.tight_layout()
+
+    outpath = os.path.join(OUT_DIR, f"kernel_times_N{N}_IT1000_float.png")
+    plt.savefig(outpath, dpi=150)
+    plt.close(fig)
+
+# 6) Graph: kernel time over iterations for each device - double
+Ns = [1024, 2048]
+devices = ["jonas", "peter", "ifi"]
+
+for N in Ns:
+    fig, ax = plt.subplots(figsize=(10,6))
+
+    colors = sns.color_palette("tab10", n_colors=len(devices))
+    for i, dev in enumerate(devices):
+        filepath = f"results/kernel_times_N{N}_IT1000_double_{dev}.csv"
+        if not os.path.exists(filepath):
+            print(f"⚠️ Missing file: {filepath}")
+            continue
+
+        dfk = pd.read_csv(filepath)
+        ax.plot(
+            dfk["iteration"], dfk["kernel_time_ms"],
+            label=dev,
+            color=colors[i],
+            linewidth=2.0,
+            alpha=0.9
+        )
+
+    ax.set_title(f"Kernel time per iteration — N={N}, IT=1000, precision=double")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Kernel Time (ms)")
+    ax.grid(alpha=0.25)
+    ax.legend(title="device")
+    plt.tight_layout()
+
+    outpath = os.path.join(OUT_DIR, f"kernel_times_N{N}_IT1000_double.png")
+    plt.savefig(outpath, dpi=150)
+    plt.close(fig)
+
+# 7) Graph: queue time over iterations for each device - double
+Ns = [1024, 2048]
+devices = ["jonas", "peter", "ifi"]
+
+for N in Ns:
+    fig, ax = plt.subplots(figsize=(10,6))
+
+    colors = sns.color_palette("tab10", n_colors=len(devices))
+    for i, dev in enumerate(devices):
+        filepath = f"results/kernel_times_N{N}_IT1000_double_{dev}.csv"
+        if not os.path.exists(filepath):
+            print(f"⚠️ Missing file: {filepath}")
+            continue
+
+        dfk = pd.read_csv(filepath)
+        ax.plot(
+            dfk["iteration"], dfk["queue_time_ms"],
+            label=dev,
+            color=colors[i],
+            linewidth=2.0,
+            alpha=0.9
+        )
+
+    ax.set_title(f"Queue time per iteration — N={N}, IT=1000, precision=double")
+    ax.set_xlabel("Iteration")
+    ax.set_yscale('log')
+    ax.set_ylabel("Queue Time (ms)")
+    ax.grid(alpha=0.25)
+    ax.legend(title="device")
+    plt.tight_layout()
+
+    outpath = os.path.join(OUT_DIR, f"queue_times_N{N}_IT1000_double.png")
+    plt.savefig(outpath, dpi=150)
+    plt.close(fig)
+
 
 print("Plots written to:", OUT_DIR)
