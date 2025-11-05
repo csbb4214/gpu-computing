@@ -15,6 +15,15 @@ os.makedirs(OUT_DIR, exist_ok=True)
 TIME_COLS = ["total_read", "total_write", 
             "write_f", "write_tmp", "write_u", "average_queue"]
 
+# device info
+DEVICE_INFO = {
+    "paul":  "Intel Iris Xe Graphics",
+    "jonas": "AMD Radeon RX 6700 XT",
+    "peter": "Nvidia RTX2070 (Laptop)",
+    "ifi":   "ifi - Nvidia RTX2070"
+}
+
+
 # Load CSVs and add device column from filename
 dfs = []
 for f in FILES:
@@ -45,7 +54,7 @@ plt.figure(figsize=(10,6))
 x = np.arange(len(TIME_COLS))
 for dev in devices:
     times = sel[sel["device"] == dev][TIME_COLS].values[0]
-    plt.plot(x, times, marker="o", label=dev)
+    plt.plot(x, times, marker="o", label=DEVICE_INFO.get(dev, dev))
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
 plt.ylabel("time (ms)")
@@ -62,7 +71,7 @@ plt.figure(figsize=(10,6))
 x = np.arange(len(TIME_COLS))
 for dev in [d for d in devices if d != "paul"]:  # exclude paul for double
     times = sel[sel["device"] == dev][TIME_COLS].values[0]
-    plt.plot(x, times, marker="o", label=dev)
+    plt.plot(x, times, marker="o", label=DEVICE_INFO.get(dev, dev))
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
 plt.ylabel("time (ms)")
@@ -146,7 +155,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -180,7 +189,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -214,7 +223,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -248,7 +257,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["queue_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -283,7 +292,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["queue_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
