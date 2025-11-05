@@ -1,7 +1,14 @@
 Sind alle kernel-Ausführungszeiten gleich? Wenn nicht, warum?
 
-
-
+Die kernel-Ausführungszeiten können relative hohe Schwankungen haben (siehe plots).
+Dies kann mehrere Gründe haben.
+Vor allem bei der RX 6700XT fällt beispielsweise auf, dass die erste Iteration immer sehr viel langsamer ist.
+Der Grund hierfür ist "Cold Cache": Der Cache ist leer oder mit veralteten Daten gefüllt.
+Andere Schwankungen könnten auch etwas mit genereller System-Noise zu tun haben wie z.B. Hintergrundprozesse im Betriebssystem.
+Besonders bei (N=2048, double) sieht man klare und vor allem regelmäßige peaks.
+Wir nehmen an dass auch das mit Cache zu tun hat.
+Auch interessant hier ist dass das Cluster im Vergleich extrem konstant bleibt.
+Das kann man auch bei allen anderen Daten/Ausführungen beobachten
 
 Wie lange dauert ein Transfer vom bzw. zum GPU auf den verschiedenen Platformen?
 Was sagt uns dies über unsere Anwendung und deren Optimierung?
@@ -37,6 +44,7 @@ Generell kann man nach analyse der Daten sagen:
 
 
 Ist die Transfergeschwindigkeit von der Richtung (read/write) abhängig?
+
 Bei integierter intel Grafik ist read durchschnittlich ca. 3x schneller als write.
 Bei einer RX 6700XT ist das Ergebnis genau umgedreht: write ist ca. 3x schneller als read.
 Auf dem Cluster (RTX 2070) ist write ca. 1,3x schneller als read.
