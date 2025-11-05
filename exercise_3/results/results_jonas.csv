@@ -1,4 +1,4 @@
-precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue 
+precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue
 double,1024,10,0.632,0.839,0.920,0.317,0.302,0.301,0.467
 double,1024,10,0.609,0.852,1.055,0.450,0.304,0.301,0.461
 double,1024,10,0.604,0.858,1.086,0.476,0.306,0.304,0.490

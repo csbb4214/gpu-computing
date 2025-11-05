@@ -1,4 +1,4 @@
-precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue 
+precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue
 float,1024,10,2.131,0.244,1.849,0.631,0.658,0.561,0.480
 float,1024,10,2.187,0.172,2.575,1.269,0.688,0.618,0.252
 float,1024,10,2.088,0.191,1.895,0.662,0.634,0.598,0.233
