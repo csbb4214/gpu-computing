@@ -1,12 +1,23 @@
 Sind alle kernel-Ausführungszeiten gleich? Wenn nicht, warum?
 
 
+
+
 Wie lange dauert ein Transfer vom bzw. zum GPU auf den verschiedenen Platformen? 
 Was sagt uns dies über unsere Anwendung und deren Optimierung?
 
 
+
+
 Ist die Transfergeschwindigkeit von der Richtung (read/write) abhängig?
+Bei integierter intel Grafik ist read durchschnittlich ca. 3x schneller als write.
+Bei einer RX 6700XT ist das Ergebnis genau umgedreht: write ist ca. 3x schneller als read.
+
+(Alle Daten die gelesen/geschrieben werden haben die gleiche Größe)
+
 
 
 Was ist die durchschnittliche Zeit von dem Zeitpunkt zu dem ein command am host
 enqueued wird bis seine Ausführung auf dem device beginnt?
+
+Siehe "results_{name}.csv".
