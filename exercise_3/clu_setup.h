@@ -17,7 +17,7 @@ typedef struct {
  * Initialize OpenCL environment (platform, device, context, command queue).
  * Returns 0 on success, non-zero on failure.
  */
-int clu_initialize(clu_env* env);
+int clu_initialize(clu_env* env, cl_queue_properties* queue_properties);
 
 /**
  * Check if the device supports double precision floating-point.

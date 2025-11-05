@@ -12,8 +12,11 @@ set IT_VALUES=10 100 1000
 rem --- clean build log ---
 if exist build.log del build.log
 
+rem --- clean detail files ---
+del kernel_times_*.csv 2>nul
+
 rem --- CSV header ---
-echo mode,precision,N,IT,time_ms,checksum > "%RESULTS%"
+echo mode,precision,N,IT,total_write,total_kernel,total_read,write_f,write_tmp,write_u > "%RESULTS%"
 
 for %%N in (%N_VALUES%) do (
   for %%I in (%IT_VALUES%) do (

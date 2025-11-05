@@ -32,7 +32,7 @@ endif
 all: jacobi_ocl$(SUFFIX)_V2
 
 jacobi_ocl$(SUFFIX)_V2: jacobi_ocl.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
 
 clean:
 	$(CLEAN)

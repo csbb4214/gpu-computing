@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int clu_initialize(clu_env* env) {
+int clu_initialize(clu_env* env, cl_queue_properties* queue_properties) {
 	if(env == NULL) { return -1; }
 
 	memset(env, 0, sizeof(clu_env));
@@ -33,7 +33,7 @@ int clu_initialize(clu_env* env) {
 		return -1;
 	}
 
-	env->command_queue = clCreateCommandQueueWithProperties(env->context, env->device_id, NULL, &err);
+	env->command_queue = clCreateCommandQueueWithProperties(env->context, env->device_id, queue_properties, &err);
 	if(err != CL_SUCCESS) {
 		fprintf(stderr, "OpenCL error: %s (%d)\n", cluErrorString(err), err);
 		clReleaseContext(env->context);

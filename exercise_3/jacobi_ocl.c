@@ -21,9 +21,6 @@
 #define VALUE double
 #define KERNEL_NAME "jacobi_step_double"
 #endif
-#ifndef VERSION
-#define VERSION 1
-#endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
 
@@ -33,7 +30,8 @@ VALUE init_func(int x, int y) {
 
 int main(void) {
 	clu_env env;
-	if(clu_initialize(&env) != 0) {
+	cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
+	if(clu_initialize(&env, queue_properties) != 0) {
 		fprintf(stderr, "Failed to initialize OpenCL\n");
 		return EXIT_FAILURE;
 	}
@@ -76,6 +74,12 @@ int main(void) {
 	const VALUE factor = pow((VALUE)1 / N, 2);
 	const size_t bytes = sizeof(VALUE) * N * N;
 
+
+	cl_ulong write_time[3];
+	cl_ulong total_write_time = 0;
+	cl_ulong total_kernel_time = 0;
+	cl_ulong total_read_time = 0;
+
 	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 	cl_mem buf_tmp = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
@@ -83,43 +87,78 @@ int main(void) {
 	cl_mem buf_f = clCreateBuffer(env.context, CL_MEM_READ_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, NULL));
+	cl_event event_time_write[3];
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, &event_time_write[0]));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_write[1]));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_write[2]));
 
+	CLU_ERRCHECK(clWaitForEvents(3, event_time_write));
+
+	for(int i = 0; i < 3; i++) {
+		cl_ulong starttime, endtime;
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL));
+		cl_ulong elapsed = (cl_ulong)(endtime - starttime);
+		write_time[i] = elapsed;
+		total_write_time += elapsed;
+	}
+
+	for(int i = 0; i < 3; i++) {
+		CLU_ERRCHECK(clReleaseEvent(event_time_write[i]));
+	}
 
 	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&buf_f));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
 
-	const double start_time = omp_get_wtime();
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-
 	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
 	const size_t local_work_size[2] = {2, 128};
-#if VERSION == 1
-	for(int it = 0; it < IT; it++) {
-		CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
 
-		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
-		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_tmp));
-
-		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
-
-		CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-	}
+	char detail_filename[256];
+#ifdef FLOAT
+	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_float.csv", N, IT);
+	const char* prec = "float";
 #else
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_double.csv", N, IT);
+	const char* prec = "double";
+#endif
+
+	FILE* detail_file = fopen(detail_filename, "w");
+	if(detail_file != NULL) { fprintf(detail_file, "iteration,kernel_time_ms\n"); }
+
 	for(int it = 0; it < IT; it++) {
 		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
 		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_tmp));
 
-		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
+		cl_event event_time;
+		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, &event_time));
+
+		CLU_ERRCHECK(clWaitForEvents(1, &event_time));
+
+		cl_ulong starttime, endtime;
+		clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL);
+		clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL);
+		cl_ulong elapsed = endtime - starttime;
+
+		total_kernel_time += elapsed;
+
+		if(detail_file != NULL) { fprintf(detail_file, "%d,%.6f\n", it, (double)(elapsed * 1e-6)); }
+
+		CLU_ERRCHECK(clReleaseEvent(event_time));
+
 		cl_mem temp = buf_u;
 		buf_u = buf_tmp;
 		buf_tmp = temp;
 	}
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-#endif
+	if(detail_file != NULL) { fclose(detail_file); }
 
-	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
+	cl_event event_time_read;
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_read));
+	CLU_ERRCHECK(clWaitForEvents(1, &event_time_read));
+
+	cl_ulong starttime, endtime;
+	clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL);
+	clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL);
+	total_read_time = (cl_ulong)(endtime - starttime);
 
 	// Calculate checksum
 	VALUE checksum = 0;
@@ -129,17 +168,8 @@ int main(void) {
 		}
 	}
 
-#ifdef FLOAT
-	const char* prec = "float";
-#else
-	const char* prec = "double";
-#endif
-
-#if VERSION == 1
-	printf("opencl_V1,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
-#else
-	printf("opencl_V2,%s,%d,%d,%.3f,%.15e\n", prec, N, IT, elapsed_ms, checksum);
-#endif
+	printf("opencl_V2,%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, (double)(total_write_time * 1e-6), (double)(total_kernel_time * 1e-6),
+	    (double)(total_read_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6));
 
 	CLU_ERRCHECK(clFlush(env.command_queue));
 	CLU_ERRCHECK(clFinish(env.command_queue));
