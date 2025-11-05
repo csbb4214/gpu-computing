@@ -15,6 +15,15 @@ os.makedirs(OUT_DIR, exist_ok=True)
 TIME_COLS = ["total_read", "total_write", 
             "write_f", "write_tmp", "write_u", "average_queue"]
 
+# device info
+DEVICE_INFO = {
+    "paul":  "Intel Iris Xe Graphics",
+    "jonas": "AMD Radeon RX 6700 XT",
+    "peter": "Nvidia RTX2070 (Laptop)",
+    "ifi":   "ifi - Nvidia RTX2070"
+}
+
+
 # Load CSVs and add device column from filename
 dfs = []
 for f in FILES:
@@ -45,7 +54,7 @@ plt.figure(figsize=(10,6))
 x = np.arange(len(TIME_COLS))
 for dev in devices:
     times = sel[sel["device"] == dev][TIME_COLS].values[0]
-    plt.plot(x, times, marker="o", label=dev)
+    plt.plot(x, times, marker="o", label=DEVICE_INFO.get(dev, dev))
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
 plt.ylabel("time (ms)")
@@ -62,7 +71,7 @@ plt.figure(figsize=(10,6))
 x = np.arange(len(TIME_COLS))
 for dev in [d for d in devices if d != "paul"]:  # exclude paul for double
     times = sel[sel["device"] == dev][TIME_COLS].values[0]
-    plt.plot(x, times, marker="o", label=dev)
+    plt.plot(x, times, marker="o", label=DEVICE_INFO.get(dev, dev))
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
 plt.ylabel("time (ms)")
@@ -146,7 +155,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -180,7 +189,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -214,7 +223,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["kernel_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -231,7 +240,42 @@ for N in Ns:
     plt.savefig(outpath, dpi=150)
     plt.close(fig)
 
-# 7) Graph: queue time over iterations for each device - double
+# 7) Graph: queue time over iterations for each device - float
+Ns = [1024, 2048]
+devices = ["paul", "jonas", "peter", "ifi"]
+
+for N in Ns:
+    fig, ax = plt.subplots(figsize=(10,6))
+
+    colors = sns.color_palette("tab10", n_colors=len(devices))
+    for i, dev in enumerate(devices):
+        filepath = f"results/kernel_times_N{N}_IT1000_float_{dev}.csv"
+        if not os.path.exists(filepath):
+            print(f"⚠️ Missing file: {filepath}")
+            continue
+
+        dfk = pd.read_csv(filepath)
+        ax.plot(
+            dfk["iteration"], dfk["queue_time_ms"],
+            label=DEVICE_INFO.get(dev, dev),
+            color=colors[i],
+            linewidth=2.0,
+            alpha=0.9
+        )
+
+    ax.set_title(f"Queue time per iteration — N={N}, IT=1000, precision=float")
+    ax.set_xlabel("Iteration")
+    ax.set_yscale('log')
+    ax.set_ylabel("Queue Time (ms) [log scale]")
+    ax.grid(alpha=0.25)
+    ax.legend(title="device")
+    plt.tight_layout()
+
+    outpath = os.path.join(OUT_DIR, f"queue_times_N{N}_IT1000_float.png")
+    plt.savefig(outpath, dpi=150)
+    plt.close(fig)
+
+# 8) Graph: queue time over iterations for each device - double
 Ns = [1024, 2048]
 devices = ["jonas", "peter", "ifi"]
 
@@ -248,7 +292,7 @@ for N in Ns:
         dfk = pd.read_csv(filepath)
         ax.plot(
             dfk["iteration"], dfk["queue_time_ms"],
-            label=dev,
+            label=DEVICE_INFO.get(dev, dev),
             color=colors[i],
             linewidth=2.0,
             alpha=0.9
@@ -257,7 +301,7 @@ for N in Ns:
     ax.set_title(f"Queue time per iteration — N={N}, IT=1000, precision=double")
     ax.set_xlabel("Iteration")
     ax.set_yscale('log')
-    ax.set_ylabel("Queue Time (ms)")
+    ax.set_ylabel("Queue Time (ms) [log scale]")
     ax.grid(alpha=0.25)
     ax.legend(title="device")
     plt.tight_layout()
