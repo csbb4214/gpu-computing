@@ -3,21 +3,50 @@ Sind alle kernel-Ausführungszeiten gleich? Wenn nicht, warum?
 
 
 
-Wie lange dauert ein Transfer vom bzw. zum GPU auf den verschiedenen Platformen? 
+Wie lange dauert ein Transfer vom bzw. zum GPU auf den verschiedenen Platformen?
 Was sagt uns dies über unsere Anwendung und deren Optimierung?
 
+Beispielintervalle für N=2048 und float:
 
+read:
+    integierter intel Grafik:
+        - 0,9 <-> 1,8
+    RX 6700XT:
+        - 1,3 <-> 2,1
+    ifi (RTX 2070):
+        - 3,2 <-> 3,2
+    RTX 2070 (laptop):
+        - 1,5 <-> 2,1
+write:
+    integierter intel Grafik:
+        - 2,5 <-> 3,5
+    RX 6700XT:
+        - 0,6 <-> 1,0
+    ifi (RTX 2070):
+        - 2,6 <-> 2,6
+    RTX 2070 (laptop):
+        - 1,5 <-> 3,3
+
+Wie man sieht hängt die Transferzeit stark von der Plattform ab (Siehe auch Verhältnisse nächste Frage).
+Da unsere Anwendung drei mal schreibt und nur ein mal ließt, sollte die Schreibzeit priorisiert werden.
+Aufgrunddessen wäre die RX 6700XT hier die beste Wahl (= kleinste Schreibzeit im Verhältnis).
+Generell kann man nach analyse der Daten sagen:
+    integierter intel Grafik: Read-intensive Workloads bevorzugen
+    RX 6700XT: Write-intensive Workloads bevorzugen
+    RTX 2070: Ausgeglichene Strategie möglich
 
 
 Ist die Transfergeschwindigkeit von der Richtung (read/write) abhängig?
 Bei integierter intel Grafik ist read durchschnittlich ca. 3x schneller als write.
 Bei einer RX 6700XT ist das Ergebnis genau umgedreht: write ist ca. 3x schneller als read.
+Auf dem Cluster (RTX 2070) ist write ca. 1,3x schneller als read.
+Bei einer RTX 2070 (laptop) sind read und write ca. gleich.
+(Alle Daten die gelesen/geschrieben werden haben die Größe NxN)
 
-(Alle Daten die gelesen/geschrieben werden haben die gleiche Größe)
-
+Also kann man sagen dass die Transfergeschwindigkeit von der Richtung abhängig ist und das Verhältnis read/write stark variieren kann.
 
 
 Was ist die durchschnittliche Zeit von dem Zeitpunkt zu dem ein command am host
 enqueued wird bis seine Ausführung auf dem device beginnt?
 
-Siehe "results_{name}.csv".
+Siehe "results_{name}.csv": average_queue
