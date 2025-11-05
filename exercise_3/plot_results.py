@@ -12,7 +12,7 @@ OUT_DIR = "plots"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Time columns to plot
-TIME_COLS = ["total_read", "total_write", 
+TIME_COLS = ["total_write", "total_read",
             "write_f", "write_tmp", "write_u", "average_queue"]
 
 # device info
