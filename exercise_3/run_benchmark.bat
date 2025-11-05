@@ -8,6 +8,7 @@ rem --- config ---
 set RESULTS=results.csv
 set N_VALUES=1024 2048
 set IT_VALUES=10 100 1000
+set RUNS=10
 
 rem --- clean build log ---
 if exist build.log del build.log
@@ -45,7 +46,9 @@ for %%N in (%N_VALUES%) do (
 
     echo [INFO] Running double binaries...
 
-    call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
+    for /l %%x in (1, 1, %RUNS%) do (
+      call ".\jacobi_ocl_N%%N_IT%%I_V2.exe" >> "%RESULTS%"
+    )
 
     rem -----------------------
     rem --- float precision ---
@@ -71,7 +74,9 @@ for %%N in (%N_VALUES%) do (
 
     echo [INFO] Running float binaries...
 
-    call ".\jacobi_ocl_N%%N_IT%%I_float_V2.exe" >> "%RESULTS%"
+    for /l %%x in (1, 1, %RUNS%) do (
+      call ".\jacobi_ocl_N%%N_IT%%I_float_V2.exe" >> "%RESULTS%"
+    )
 
   )
 )
