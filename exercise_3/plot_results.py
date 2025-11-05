@@ -12,7 +12,7 @@ OUT_DIR = "plots"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Time columns to plot
-TIME_COLS = ["total_kernel", "total_read", "total_write", 
+TIME_COLS = ["total_read", "total_write", 
             "write_f", "write_tmp", "write_u", "average_queue"]
 
 # Load CSVs and add device column from filename
@@ -48,8 +48,7 @@ for dev in devices:
     plt.plot(x, times, marker="o", label=dev)
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
-plt.yscale('log')
-plt.ylabel("time (ms) [log scale]")
+plt.ylabel("time (ms)")
 plt.title("device comparison — N=2048 IT=1000 precision=float")
 plt.grid(alpha=0.25)
 plt.legend(title="device")
@@ -66,8 +65,7 @@ for dev in [d for d in devices if d != "paul"]:  # exclude paul for double
     plt.plot(x, times, marker="o", label=dev)
 plt.xticks(x, TIME_COLS, rotation=45)
 plt.xlabel("measurement")
-plt.yscale('log')
-plt.ylabel("time (ms) [log scale]")
+plt.ylabel("time (ms)")
 plt.title("device comparison — N=2048 IT=1000 precision=double")
 plt.grid(alpha=0.25)
 plt.legend(title="device")
