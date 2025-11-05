@@ -1,0 +1,12 @@
+Sind alle kernel-Ausführungszeiten gleich? Wenn nicht, warum?
+
+
+Wie lange dauert ein Transfer vom bzw. zum GPU auf den verschiedenen Platformen? 
+Was sagt uns dies über unsere Anwendung und deren Optimierung?
+
+
+Ist die Transfergeschwindigkeit von der Richtung (read/write) abhängig?
+
+
+Was ist die durchschnittliche Zeit von dem Zeitpunkt zu dem ein command am host
+enqueued wird bis seine Ausführung auf dem device beginnt?

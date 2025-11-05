@@ -17,7 +17,7 @@ rm -f build.log
 rm -f kernel_times_*.csv 2>/dev/null || true
 
 # --- CSV header ---
-echo "mode,precision,N,IT,total_write,total_kernel,total_read,write_f,write_tmp,write_u" >"$RESULTS"
+echo "precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue" >"$RESULTS"
 
 for N in "${N_VALUES[@]}"; do
   for IT in "${IT_VALUES[@]}"; do

@@ -29,6 +29,7 @@ VALUE init_func(int x, int y) {
 }
 
 int main(void) {
+	/* setup and init */
 	clu_env env;
 	cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
 	if(clu_initialize(&env, queue_properties) != 0) {
@@ -43,7 +44,6 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 #endif
-
 
 	const char kernel_path[] = "./jacobi.cl";
 	size_t source_size = 0;
@@ -74,11 +74,14 @@ int main(void) {
 	const VALUE factor = pow((VALUE)1 / N, 2);
 	const size_t bytes = sizeof(VALUE) * N * N;
 
-
+	// Timing variables
 	cl_ulong write_time[3];
 	cl_ulong total_write_time = 0;
 	cl_ulong total_kernel_time = 0;
 	cl_ulong total_read_time = 0;
+
+	// Queue timing variable
+	cl_ulong total_queue_time = 0;
 
 	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
@@ -94,13 +97,19 @@ int main(void) {
 
 	CLU_ERRCHECK(clWaitForEvents(3, event_time_write));
 
+	// Calculate write times and queue times for write operations
 	for(int i = 0; i < 3; i++) {
-		cl_ulong starttime, endtime;
+		cl_ulong queuedtime, starttime, endtime;
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime, NULL));
 		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL));
 		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL));
+
 		cl_ulong elapsed = (cl_ulong)(endtime - starttime);
+		cl_ulong queue_elapsed = (cl_ulong)(starttime - queuedtime);
+
 		write_time[i] = elapsed;
 		total_write_time += elapsed;
+		total_queue_time += queue_elapsed;
 	}
 
 	for(int i = 0; i < 3; i++) {
@@ -123,7 +132,7 @@ int main(void) {
 #endif
 
 	FILE* detail_file = fopen(detail_filename, "w");
-	if(detail_file != NULL) { fprintf(detail_file, "iteration,kernel_time_ms\n"); }
+	if(detail_file != NULL) { fprintf(detail_file, "iteration,kernel_time_ms,queue_time_ms\n"); }
 
 	for(int it = 0; it < IT; it++) {
 		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
@@ -134,14 +143,18 @@ int main(void) {
 
 		CLU_ERRCHECK(clWaitForEvents(1, &event_time));
 
-		cl_ulong starttime, endtime;
-		clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL);
-		clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL);
+		cl_ulong queuedtime, starttime, endtime;
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL));
+
+		cl_ulong queue_elapsed = starttime - queuedtime;
 		cl_ulong elapsed = endtime - starttime;
 
+		total_queue_time += queue_elapsed;
 		total_kernel_time += elapsed;
 
-		if(detail_file != NULL) { fprintf(detail_file, "%d,%.6f\n", it, (double)(elapsed * 1e-6)); }
+		if(detail_file != NULL) { fprintf(detail_file, "%d,%.6f,%.6f\n", it, (double)(elapsed * 1e-6), (double)(queue_elapsed * 1e-6)); }
 
 		CLU_ERRCHECK(clReleaseEvent(event_time));
 
@@ -155,10 +168,17 @@ int main(void) {
 	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_read));
 	CLU_ERRCHECK(clWaitForEvents(1, &event_time_read));
 
-	cl_ulong starttime, endtime;
-	clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL);
-	clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL);
-	total_read_time = (cl_ulong)(endtime - starttime);
+	// Queue time for read operation
+	cl_ulong queuedtime_read, starttime_read, endtime_read;
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime_read, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime_read, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime_read, NULL));
+
+	cl_ulong read_queue_elapsed = starttime_read - queuedtime_read;
+	total_queue_time += read_queue_elapsed;
+	total_read_time = (cl_ulong)(endtime_read - starttime_read);
+
+	CLU_ERRCHECK(clReleaseEvent(event_time_read));
 
 	// Calculate checksum
 	VALUE checksum = 0;
@@ -168,8 +188,12 @@ int main(void) {
 		}
 	}
 
-	printf("opencl_V2,%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, (double)(total_write_time * 1e-6), (double)(total_kernel_time * 1e-6),
-	    (double)(total_read_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6));
+	// Average queue time
+	int total_operations = 3 + IT + 1; // 3 writes + IT kernels + 1 read
+	double average_queue_time = (double)(total_queue_time * 1e-6) / total_operations;
+
+	printf("%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, (double)(total_kernel_time * 1e-6), (double)(total_read_time * 1e-6),
+	    (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), average_queue_time);
 
 	CLU_ERRCHECK(clFlush(env.command_queue));
 	CLU_ERRCHECK(clFinish(env.command_queue));
