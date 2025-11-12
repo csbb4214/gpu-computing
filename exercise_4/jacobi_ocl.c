@@ -89,6 +89,24 @@ int main(void) {
 	cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
 	CLU_ERRCHECK(err);
 
+	// ========== Query and print device limits ==========
+	size_t max_work_group_size;
+	cl_uint max_work_item_dims;
+	size_t max_work_item_sizes[3];
+
+	CLU_ERRCHECK(clGetDeviceInfo(env.device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_work_group_size), &max_work_group_size, NULL));
+	CLU_ERRCHECK(clGetDeviceInfo(env.device_id, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(max_work_item_dims), &max_work_item_dims, NULL));
+	CLU_ERRCHECK(clGetDeviceInfo(env.device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_work_item_sizes), max_work_item_sizes, NULL));
+
+	printf("Device limits:\n");
+	printf("  CL_DEVICE_MAX_WORK_GROUP_SIZE: %zu\n", max_work_group_size);
+	printf("  CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: %u\n", max_work_item_dims);
+	printf("  CL_DEVICE_MAX_WORK_ITEM_SIZES: ");
+	for(cl_uint i = 0; i < max_work_item_dims; i++) {
+		printf("%zu ", max_work_item_sizes[i]);
+	}
+	printf("\n\n");
+
 	// ========== Initialize host matrices ==========
 	memset(u, 0, sizeof(u));
 	for(int i = 0; i < N; i++) {
