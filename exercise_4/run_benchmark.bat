@@ -31,8 +31,8 @@ for %%N in (%N_VALUES%) do (
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=16 LOCAL_WORKGROUP_DIM_2=16 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=8 LOCAL_WORKGROUP_DIM_2=32 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=4 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
-    call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=64 LOCAL_WORKGROUP_DIM_2=4 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=128 > build_temp.log 2>&1
+    call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=1 LOCAL_WORKGROUP_DIM_2=256 > build_temp.log 2>&1
     if errorlevel 1 (
       echo [ERROR] Build failed for double N=%%N IT=%%I
       type build_temp.log >> build.log
@@ -60,11 +60,11 @@ for %%N in (%N_VALUES%) do (
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-4_DIM2-64_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-4_DIM2-64_V3.exe" >> "%RESULTS%"
 
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-64_DIM2-4_V2.exe" >> "%RESULTS%"
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-64_DIM2-4_V3.exe" >> "%RESULTS%"
-
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-128_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-128_V3.exe" >> "%RESULTS%"
+
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-1_DIM2-256_V2.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-1_DIM2-256_V3.exe" >> "%RESULTS%"
     )
 
     call mingw32-make clean
@@ -78,8 +78,8 @@ for %%N in (%N_VALUES%) do (
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=16 LOCAL_WORKGROUP_DIM_2=16 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=8 LOCAL_WORKGROUP_DIM_2=32 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=4 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
-    call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=64 LOCAL_WORKGROUP_DIM_2=4 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=128 > build_temp.log 2>&1
+    call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=1 LOCAL_WORKGROUP_DIM_2=256 > build_temp.log 2>&1
     if errorlevel 1 (
       echo [ERROR] Build failed for float N=%%N IT=%%I
       type build_temp.log >> build.log
@@ -107,11 +107,11 @@ for %%N in (%N_VALUES%) do (
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-4_DIM2-64_float_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-4_DIM2-64_float_V3.exe" >> "%RESULTS%"
 
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-64_DIM2-4_float_V2.exe" >> "%RESULTS%"
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-64_DIM2-4_float_V3.exe" >> "%RESULTS%"
-
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-128_float_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-128_float_V3.exe" >> "%RESULTS%"
+
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-1_DIM2-256_float_V2.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-1_DIM2-256_float_V3.exe" >> "%RESULTS%"
     )
 
     call mingw32-make clean
