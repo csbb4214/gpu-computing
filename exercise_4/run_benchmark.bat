@@ -6,7 +6,7 @@ setlocal
 
 rem --- config ---
 set RESULTS=results.csv
-set N_VALUES=2048 4096
+set N_VALUES=1024 2048
 set IT_VALUES=10 100 1000
 set RUNS=10
 

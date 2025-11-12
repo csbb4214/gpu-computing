@@ -166,7 +166,6 @@ int main(void) {
 
 	cl_event event_time_read;
 	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_read));
-	CLU_ERRCHECK(clWaitForEvents(1, &event_time_read));
 
 	// Queue time for read operation
 	cl_ulong queuedtime_read, starttime_read, endtime_read;

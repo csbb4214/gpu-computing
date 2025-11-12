@@ -22,7 +22,7 @@ echo
 
 # --- config ---
 RESULTS="results.csv"
-N_VALUES=(2048 4096)
+N_VALUES=(1024 2048)
 IT_VALUES=(10 100 1000)
 RUNS=10
 

@@ -29,7 +29,7 @@ VALUE init_func(int x, int y) {
 }
 
 int main(void) {
-	/* setup and init */
+	// ========== Initialization ==========
 	clu_env env;
 	cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
 	if(clu_initialize(&env, queue_properties) != 0) {
@@ -45,6 +45,7 @@ int main(void) {
 	}
 #endif
 
+	// ========== Load and compile kernel ==========
 	const char kernel_path[] = "./jacobi.cl";
 	size_t source_size = 0;
 	char* source_str = clu_load_kernel_source(kernel_path, &source_size);
@@ -55,6 +56,7 @@ int main(void) {
 
 	cl_program program = clu_create_program(env.context, env.device_id, source_str, source_size, NULL);
 	if(program == NULL) {
+		free(source_str);
 		clu_release(&env);
 		return EXIT_FAILURE;
 	}
@@ -63,7 +65,7 @@ int main(void) {
 	cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
 	CLU_ERRCHECK(err);
 
-	// init matrices
+	// ========== Initialize host matrices ==========
 	memset(u, 0, sizeof(u));
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
@@ -71,18 +73,13 @@ int main(void) {
 		}
 	}
 
+	// ========== Setup kernel parameters ==========
 	const VALUE factor = pow((VALUE)1 / N, 2);
 	const size_t bytes = sizeof(VALUE) * N * N;
+	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
+	const size_t local_work_size[2] = {2, 128};
 
-	// Timing variables
-	cl_ulong write_time[3];
-	cl_ulong total_write_time = 0;
-	cl_ulong total_kernel_time = 0;
-	cl_ulong total_read_time = 0;
-
-	// Queue timing variable
-	cl_ulong total_queue_time = 0;
-
+	// ========== Create device buffers ==========
 	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 	cl_mem buf_tmp = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
@@ -90,97 +87,133 @@ int main(void) {
 	cl_mem buf_f = clCreateBuffer(env.context, CL_MEM_READ_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 
-	cl_event event_time_write[3];
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, &event_time_write[0]));
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_write[1]));
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_write[2]));
+	// ========== Write data to device ==========
+	cl_event write_events[3];
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_FALSE, 0, bytes, f, 0, NULL, &write_events[0]));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_FALSE, 0, bytes, u, 0, NULL, &write_events[1]));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_FALSE, 0, bytes, u, 0, NULL, &write_events[2]));
+	CLU_ERRCHECK(clWaitForEvents(3, write_events));
 
-	CLU_ERRCHECK(clWaitForEvents(3, event_time_write));
-
-	// Calculate write times and queue times for write operations
-	for(int i = 0; i < 3; i++) {
-		cl_ulong queuedtime, starttime, endtime;
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time_write[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL));
-
-		cl_ulong elapsed = (cl_ulong)(endtime - starttime);
-		cl_ulong queue_elapsed = (cl_ulong)(starttime - queuedtime);
-
-		write_time[i] = elapsed;
-		total_write_time += elapsed;
-		total_queue_time += queue_elapsed;
-	}
+	// ========== Measure write times ==========
+	cl_ulong write_time[3];
+	cl_ulong total_write_time = 0;
+	cl_ulong total_queue_time = 0;
 
 	for(int i = 0; i < 3; i++) {
-		CLU_ERRCHECK(clReleaseEvent(event_time_write[i]));
+		cl_ulong queued, start, end;
+		CLU_ERRCHECK(clGetEventProfilingInfo(write_events[i], CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(write_events[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(write_events[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
+
+		write_time[i] = end - start;
+		total_write_time += (end - start);
+		total_queue_time += (start - queued);
+
+		CLU_ERRCHECK(clReleaseEvent(write_events[i]));
 	}
 
+	// ========== Set constant kernel arguments ==========
 	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&buf_f));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
 
-	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
-	const size_t local_work_size[2] = {2, 128};
+	// ========== Allocate timing arrays ==========
+	cl_event* kernel_events = (cl_event*)malloc(IT * sizeof(cl_event));
+	double* kernel_times = (double*)malloc(IT * sizeof(double));
+	double* queue_times = (double*)malloc(IT * sizeof(double));
 
-	char detail_filename[256];
-#ifdef FLOAT
-	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_float.csv", N, IT);
-	const char* prec = "float";
-#else
-	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_double.csv", N, IT);
-	const char* prec = "double";
-#endif
+	if(kernel_events == NULL || kernel_times == NULL || queue_times == NULL) {
+		fprintf(stderr, "Failed to allocate memory for timing arrays\n");
+		free(kernel_events);
+		free(kernel_times);
+		free(queue_times);
+		CLU_ERRCHECK(clFlush(env.command_queue));
+		CLU_ERRCHECK(clFinish(env.command_queue));
+		CLU_ERRCHECK(clReleaseKernel(kernel));
+		CLU_ERRCHECK(clReleaseProgram(program));
+		CLU_ERRCHECK(clReleaseMemObject(buf_u));
+		CLU_ERRCHECK(clReleaseMemObject(buf_tmp));
+		CLU_ERRCHECK(clReleaseMemObject(buf_f));
+		free(source_str);
+		clu_release(&env);
 
-	FILE* detail_file = fopen(detail_filename, "w");
-	if(detail_file != NULL) { fprintf(detail_file, "iteration,kernel_time_ms,queue_time_ms\n"); }
+		return EXIT_FAILURE;
+	}
 
+	// ========== Enqueue kernels ==========
 	for(int it = 0; it < IT; it++) {
 		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
 		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_tmp));
 
-		cl_event event_time;
-		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, &event_time));
-
-		CLU_ERRCHECK(clWaitForEvents(1, &event_time));
-
-		cl_ulong queuedtime, starttime, endtime;
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(event_time, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime, NULL));
-
-		cl_ulong queue_elapsed = starttime - queuedtime;
-		cl_ulong elapsed = endtime - starttime;
-
-		total_queue_time += queue_elapsed;
-		total_kernel_time += elapsed;
-
-		if(detail_file != NULL) { fprintf(detail_file, "%d,%.6f,%.6f\n", it, (double)(elapsed * 1e-6), (double)(queue_elapsed * 1e-6)); }
-
-		CLU_ERRCHECK(clReleaseEvent(event_time));
+		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, &kernel_events[it]));
 
 		cl_mem temp = buf_u;
 		buf_u = buf_tmp;
 		buf_tmp = temp;
 	}
-	if(detail_file != NULL) { fclose(detail_file); }
 
-	cl_event event_time_read;
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &event_time_read));
-	CLU_ERRCHECK(clWaitForEvents(1, &event_time_read));
+	CLU_ERRCHECK(clWaitForEvents(IT, kernel_events));
 
-	// Queue time for read operation
-	cl_ulong queuedtime_read, starttime_read, endtime_read;
-	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queuedtime_read, NULL));
-	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &starttime_read, NULL));
-	CLU_ERRCHECK(clGetEventProfilingInfo(event_time_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &endtime_read, NULL));
+	// ========== Extract kernel timing information ==========
+	cl_ulong total_kernel_time = 0;
 
-	cl_ulong read_queue_elapsed = starttime_read - queuedtime_read;
-	total_queue_time += read_queue_elapsed;
-	total_read_time = (cl_ulong)(endtime_read - starttime_read);
+	for(int it = 0; it < IT; it++) {
+		cl_ulong queued, start, end;
+		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
+		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
 
-	CLU_ERRCHECK(clReleaseEvent(event_time_read));
+		cl_ulong queue_elapsed = start - queued;
+		cl_ulong elapsed = end - start;
 
-	// Calculate checksum
+		total_queue_time += queue_elapsed;
+		total_kernel_time += elapsed;
+
+		kernel_times[it] = (double)(elapsed * 1e-6);
+		queue_times[it] = (double)(queue_elapsed * 1e-6);
+
+		CLU_ERRCHECK(clReleaseEvent(kernel_events[it]));
+	}
+
+	// ========== Write timing data to CSV file ==========
+	char detail_filename[256];
+#ifdef FLOAT
+	const char* prec = "float";
+	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_float.csv", N, IT);
+#else
+	const char* prec = "double";
+	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_double.csv", N, IT);
+#endif
+
+	FILE* detail_file = fopen(detail_filename, "w");
+	if(detail_file != NULL) {
+		fprintf(detail_file, "iteration,kernel_time_ms,queue_time_ms\n");
+		for(int it = 0; it < IT; it++) {
+			fprintf(detail_file, "%d,%.6f,%.6f\n", it, kernel_times[it], queue_times[it]);
+		}
+		fclose(detail_file);
+	}
+
+	free(kernel_events);
+	free(kernel_times);
+	free(queue_times);
+
+	// ========== Read result back to host ==========
+	cl_event read_event;
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &read_event));
+
+	// ========== Measure read times ==========
+	cl_ulong read_queued, read_start, read_end;
+	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &read_queued, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &read_start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &read_end, NULL));
+
+	total_queue_time += (read_start - read_queued);
+	cl_ulong total_read_time = read_end - read_start;
+
+	CLU_ERRCHECK(clReleaseEvent(read_event));
+
+
+	// ========== Calculate Checksum ==========
 	VALUE checksum = 0;
 	for(int i = 1; i < N - 1; i++) {
 		for(int j = 1; j < N - 1; j++) {
@@ -188,13 +221,14 @@ int main(void) {
 		}
 	}
 
-	// Average queue time
+	// ========== Print summary statistics ==========
 	int total_operations = 3 + IT + 1; // 3 writes + IT kernels + 1 read
-	double average_queue_time = (double)(total_queue_time * 1e-6) / total_operations;
+	double avg_queue_time = (double)(total_queue_time * 1e-6) / total_operations;
 
 	printf("%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, (double)(total_kernel_time * 1e-6), (double)(total_read_time * 1e-6),
-	    (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), average_queue_time);
+	    (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), avg_queue_time);
 
+	// ========== Cleanup ==========
 	CLU_ERRCHECK(clFlush(env.command_queue));
 	CLU_ERRCHECK(clFinish(env.command_queue));
 	CLU_ERRCHECK(clReleaseKernel(kernel));
@@ -202,9 +236,7 @@ int main(void) {
 	CLU_ERRCHECK(clReleaseMemObject(buf_u));
 	CLU_ERRCHECK(clReleaseMemObject(buf_tmp));
 	CLU_ERRCHECK(clReleaseMemObject(buf_f));
-
 	free(source_str);
-
 	clu_release(&env);
 
 	return EXIT_SUCCESS;
