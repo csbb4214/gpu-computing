@@ -39,4 +39,4 @@ Weil:
 
 Welche WG size ist die beste pro Architektur?
 
-
+Bei den plots kann man erkennen dass 1x256 bei allen Architekturen das beste ist.
