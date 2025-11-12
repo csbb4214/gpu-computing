@@ -25,7 +25,7 @@ Peter: Nvidia RTX 2070 (laptop)
 
 Beispiele:
 Auf der AMD RX 6700 XT darf local_size_x * local_size_y * local_size_z ≤ 256 sein.
-Auf der RTX 2070 darf die Summe ≤ 1024 sein, aber local_size_z darf maximal 64 betragen.
+Auf der RTX 2070 darf das Produkt ≤ 1024 sein, aber local_size_z darf maximal 64 betragen.
 
 
 Sind größere (sofern möglich) Workgroups immer vorzuziehen? Wenn nein, warum nicht?
