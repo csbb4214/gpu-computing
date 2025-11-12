@@ -14,12 +14,29 @@
 #ifndef IT
 #define IT 100
 #endif
+#ifndef VERSION
+#define VERSION 2
+#endif
 #ifdef FLOAT
 #define VALUE float
+#if VERSION == 3
+#define KERNEL_NAME "jacobi_step_float_local"
+#else
 #define KERNEL_NAME "jacobi_step_float"
+#endif
 #else
 #define VALUE double
+#if VERSION == 3
+#define KERNEL_NAME "jacobi_step_double_local"
+#else
 #define KERNEL_NAME "jacobi_step_double"
+#endif
+#endif
+#ifndef LOCAL_WORKGROUP_DIM_1
+#define LOCAL_WORKGROUP_DIM_1 2
+#endif
+#ifndef LOCAL_WORKGROUP_DIM_2
+#define LOCAL_WORKGROUP_DIM_2 128
 #endif
 
 VALUE u[N][N], tmp[N][N], f[N][N];
@@ -31,11 +48,18 @@ VALUE init_func(int x, int y) {
 int main(void) {
 	// ========== Initialization ==========
 	clu_env env;
+#ifdef DETAILED_TIMING
 	cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
 	if(clu_initialize(&env, queue_properties) != 0) {
 		fprintf(stderr, "Failed to initialize OpenCL\n");
 		return EXIT_FAILURE;
 	}
+#else
+	if(clu_initialize(&env, NULL) != 0) {
+		fprintf(stderr, "Failed to initialize OpenCL\n");
+		return EXIT_FAILURE;
+	}
+#endif
 
 #ifndef FLOAT
 	if(!clu_check_double_support(env.device_id)) {
@@ -77,7 +101,7 @@ int main(void) {
 	const VALUE factor = pow((VALUE)1 / N, 2);
 	const size_t bytes = sizeof(VALUE) * N * N;
 	const size_t global_work_size[2] = {(size_t)N, (size_t)N};
-	const size_t local_work_size[2] = {2, 128};
+	const size_t local_work_size[2] = {LOCAL_WORKGROUP_DIM_1, LOCAL_WORKGROUP_DIM_2};
 
 	// ========== Create device buffers ==========
 	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
@@ -88,12 +112,20 @@ int main(void) {
 	CLU_ERRCHECK(err);
 
 	// ========== Write data to device ==========
+	const double start_time = omp_get_wtime();
+#ifdef DETAILED_TIMING
 	cl_event write_events[3];
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_FALSE, 0, bytes, f, 0, NULL, &write_events[0]));
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_FALSE, 0, bytes, u, 0, NULL, &write_events[1]));
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_FALSE, 0, bytes, u, 0, NULL, &write_events[2]));
 	CLU_ERRCHECK(clWaitForEvents(3, write_events));
+#else
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_f, CL_TRUE, 0, bytes, f, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_tmp, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+#endif
 
+#ifdef DETAILED_TIMING
 	// ========== Measure write times ==========
 	cl_ulong write_time[3];
 	cl_ulong total_write_time = 0;
@@ -111,11 +143,24 @@ int main(void) {
 
 		CLU_ERRCHECK(clReleaseEvent(write_events[i]));
 	}
+#endif
 
 	// ========== Set constant kernel arguments ==========
 	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&buf_f));
+#if VERSION == 2
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
+#else
+	const cl_int pitch = (cl_int)local_work_size[0] + 2;
+	const cl_int dim = N;
+	const size_t local_mem_size = pitch * (local_work_size[1] + 2) * sizeof(VALUE);
 
+	CLU_ERRCHECK(clSetKernelArg(kernel, 3, local_mem_size, NULL));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 4, sizeof(cl_int), &pitch));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 5, sizeof(cl_int), &dim));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 6, sizeof(VALUE), (void*)&factor));
+#endif
+
+#ifdef DETAILED_TIMING
 	// ========== Allocate timing arrays ==========
 	cl_event* kernel_events = (cl_event*)malloc(IT * sizeof(cl_event));
 	double* kernel_times = (double*)malloc(IT * sizeof(double));
@@ -138,21 +183,29 @@ int main(void) {
 
 		return EXIT_FAILURE;
 	}
+#endif
 
 	// ========== Enqueue kernels ==========
 	for(int it = 0; it < IT; it++) {
 		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
 		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_tmp));
 
+#ifdef DETAILED_TIMING
 		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, &kernel_events[it]));
+#else
+		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
+#endif
 
 		cl_mem temp = buf_u;
 		buf_u = buf_tmp;
 		buf_tmp = temp;
 	}
 
+#ifdef DETAILED_TIMING
 	CLU_ERRCHECK(clWaitForEvents(IT, kernel_events));
+#endif
 
+#ifdef DETAILED_TIMING
 	// ========== Extract kernel timing information ==========
 	cl_ulong total_kernel_time = 0;
 
@@ -173,14 +226,21 @@ int main(void) {
 
 		CLU_ERRCHECK(clReleaseEvent(kernel_events[it]));
 	}
+#endif
 
+#ifdef FLOAT
+	const char* prec = "float";
+#else
+	const char* prec = "double";
+#endif
+
+
+#ifdef DETAILED_TIMING
 	// ========== Write timing data to CSV file ==========
 	char detail_filename[256];
 #ifdef FLOAT
-	const char* prec = "float";
 	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_float.csv", N, IT);
 #else
-	const char* prec = "double";
 	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_double.csv", N, IT);
 #endif
 
@@ -196,11 +256,20 @@ int main(void) {
 	free(kernel_events);
 	free(kernel_times);
 	free(queue_times);
+#endif
 
 	// ========== Read result back to host ==========
+
+#ifdef DETAILED_TIMING
 	cl_event read_event;
 	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &read_event));
+#else
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+#endif
+	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
+
+#ifdef DETAILED_TIMING
 	// ========== Measure read times ==========
 	cl_ulong read_queued, read_start, read_end;
 	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &read_queued, NULL));
@@ -211,7 +280,7 @@ int main(void) {
 	cl_ulong total_read_time = read_end - read_start;
 
 	CLU_ERRCHECK(clReleaseEvent(read_event));
-
+#endif
 
 	// ========== Calculate Checksum ==========
 	VALUE checksum = 0;
@@ -222,11 +291,27 @@ int main(void) {
 	}
 
 	// ========== Print summary statistics ==========
+
+#ifdef DETAILED_TIMING
 	int total_operations = 3 + IT + 1; // 3 writes + IT kernels + 1 read
 	double avg_queue_time = (double)(total_queue_time * 1e-6) / total_operations;
 
-	printf("%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, (double)(total_kernel_time * 1e-6), (double)(total_read_time * 1e-6),
-	    (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6), (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), avg_queue_time);
+#if VERSION == 2
+	printf("opencl_V2,%s,%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, LOCAL_WORKGROUP_DIM_1, LOCAL_WORKGROUP_DIM_2,
+	    (double)(total_kernel_time * 1e-6), (double)(total_read_time * 1e-6), (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6),
+	    (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), avg_queue_time, elapsed_ms);
+#else
+	printf("opencl_V3,%s,%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", prec, N, IT, LOCAL_WORKGROUP_DIM_1, LOCAL_WORKGROUP_DIM_2,
+	    (double)(total_kernel_time * 1e-6), (double)(total_read_time * 1e-6), (double)(total_write_time * 1e-6), (double)(write_time[0] * 1e-6),
+	    (double)(write_time[1] * 1e-6), (double)(write_time[2] * 1e-6), avg_queue_time, elapsed_ms);
+#endif
+#else
+#if VERSION == 2
+	printf("opencl_V2,%s,%d,%d,%d,%d,%.3f\n", prec, N, IT, LOCAL_WORKGROUP_DIM_1, LOCAL_WORKGROUP_DIM_2, elapsed_ms);
+#else
+	printf("opencl_V3,%s,%d,%d,%d,%d,%.3f\n", prec, N, IT, LOCAL_WORKGROUP_DIM_1, LOCAL_WORKGROUP_DIM_2, elapsed_ms);
+#endif
+#endif
 
 	// ========== Cleanup ==========
 	CLU_ERRCHECK(clFlush(env.command_queue));
