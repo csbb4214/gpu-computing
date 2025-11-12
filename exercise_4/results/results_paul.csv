@@ -1,4 +1,4 @@
-version,precision,N,IT,LOCAL_WORKGROUP_DIM_1,LOCAL_WORKGROUP_DIM_2,elapsed_ms 
+version,precision,N,IT,LOCAL_WORKGROUP_DIM_1,LOCAL_WORKGROUP_DIM_2,elapsed_ms
 opencl_V2,float,2048,10,8,32,38.000
 opencl_V3,float,2048,10,8,32,34.000
 opencl_V2,float,2048,10,4,64,32.000
