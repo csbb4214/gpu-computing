@@ -28,7 +28,7 @@ for %%N in (%N_VALUES%) do (
 
     echo [INFO] Building double N=%%N IT=%%I 
 
-    call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=16 LOCAL_WORKGROUP_DIM_2=16 > build_temp.log 2>&1
+    call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=8 LOCAL_WORKGROUP_DIM_2=32 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=4 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=128 > build_temp.log 2>&1
@@ -51,8 +51,8 @@ for %%N in (%N_VALUES%) do (
     echo [INFO] Running double binaries...
 
     for /l %%x in (1, 1, %RUNS%) do (
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-16_DIM2-16_V2.exe" >> "%RESULTS%"
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-16_DIM2-16_V3.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-64_V2.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-64_V3.exe" >> "%RESULTS%"
 
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-8_DIM2-32_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-8_DIM2-32_V3.exe" >> "%RESULTS%"
@@ -75,7 +75,7 @@ for %%N in (%N_VALUES%) do (
 
     echo [INFO] Building float N=%%N IT=%%I
 
-    call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=16 LOCAL_WORKGROUP_DIM_2=16 > build_temp.log 2>&1
+    call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=8 LOCAL_WORKGROUP_DIM_2=32 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=4 LOCAL_WORKGROUP_DIM_2=64 > build_temp.log 2>&1
     call mingw32-make all N=%%N IT=%%I FLOAT=1 LOCAL_WORKGROUP_DIM_1=2 LOCAL_WORKGROUP_DIM_2=128 > build_temp.log 2>&1
@@ -98,8 +98,8 @@ for %%N in (%N_VALUES%) do (
     echo [INFO] Running float binaries...
 
     for /l %%x in (1, 1, %RUNS%) do (
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-16_DIM2-16_float_V2.exe" >> "%RESULTS%"
-      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-16_DIM2-16_float_V3.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-64_float_V2.exe" >> "%RESULTS%"
+      call ".\jacobi_ocl_N%%N_IT%%I_DIM1-2_DIM2-64_float_V3.exe" >> "%RESULTS%"
 
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-8_DIM2-32_float_V2.exe" >> "%RESULTS%"
       call ".\jacobi_ocl_N%%N_IT%%I_DIM1-8_DIM2-32_float_V3.exe" >> "%RESULTS%"
