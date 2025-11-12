@@ -17,7 +17,7 @@ rem --- clean detail files ---
 del kernel_times_*.csv 2>nul
 
 rem --- CSV header ---
-echo precision,N,IT,total_kernel,total_read,total_write,write_f,write_tmp,write_u,average_queue > "%RESULTS%"
+echo version,precision,N,IT,LOCAL_WORKGROUP_DIM_1,LOCAL_WORKGROUP_DIM_2,elapsed_ms > "%RESULTS%"
 
 for %%N in (%N_VALUES%) do (
   for %%I in (%IT_VALUES%) do (
