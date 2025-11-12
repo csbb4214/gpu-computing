@@ -6,7 +6,7 @@ set -euo pipefail
 
 # --- config ---
 RESULTS="results.csv"
-N_VALUES=(1024 2048)
+N_VALUES=(2048 4096)
 IT_VALUES=(10 100 1000)
 RUNS=10
 

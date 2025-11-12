@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # --- config ---
-N_VALUES=(1024 2048)
+N_VALUES=(2048 4096)
 IT_VALUES=(10 100 1000)
 
 # --- clean build log ---
