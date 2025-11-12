@@ -1,7 +1,15 @@
+Welche Auswirkungen hat die Workgroup Größe auf das Programm?
+Die Workgroup-Größe bestimmt, wie viele Work-Items (Threads) gemeinsam innerhalb einer Gruppe arbeiten
+und Ressourcen wie lokalen Speicher (Local Memory) und Barriers (Synchronisation) teilen.
+Eine gut gewählte Workgroup-Größe kann die GPU optimal auslasten und Speicherzugriffe effizienter machen.
+Wie schon gesagt wirken barriers nur innerhalb einer Workgroup;
+D.h. synchronisierte Algorithmen wie in diesem Fall können je nach Workgroup-Größe Zeitunterschiede aufweisen (Synchronisations-Overhead).
 
 
+Kann die Größe beliebig gewählt werden, und wenn nein, was ist das Limit?
+Die Größe kann nicht beliebig gewählt werden.
+Sie ist durch Geräteeigenschaften begrenzt:
 
---- Device limits ---
 Jonas: AMD Radeon RX 6700 XT
   CL_DEVICE_MAX_WORK_GROUP_SIZE: 256
   CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: 3
@@ -14,3 +22,21 @@ Peter: Nvidia RTX 2070 (laptop)
   CL_DEVICE_MAX_WORK_GROUP_SIZE: 1024
   CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: 3
   CL_DEVICE_MAX_WORK_ITEM_SIZES: 1024 1024 64
+
+Beispiele:
+Auf der AMD RX 6700 XT darf local_size_x * local_size_y * local_size_z ≤ 256 sein.
+Auf der RTX 2070 darf die Summe ≤ 1024 sein, aber local_size_z darf maximal 64 betragen.
+
+
+Sind größere (sofern möglich) Workgroups immer vorzuziehen? Wenn nein, warum nicht?
+Größere Workgroups sind nicht immer besser.
+Weil:
+  - Große Workgroups belegen mehr lokale Ressourcen
+  - GPUs arbeiten intern mit festen Gruppengrößen (z. B. 32 Threads pro "Warp" bei Nvidia, 64 Threads pro "Wavefront" bei AMD);
+    D.h. die Workgroup-Größe sollte ein Vielfaches davon sein. Wenn nicht, bleiben einge Threads ungenutzt
+  - Bestimmte WG sizes führen zu besserem Memory Coalescing
+
+
+Welche WG size ist die beste pro Architektur?
+
+
