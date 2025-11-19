@@ -13,7 +13,7 @@
 #endif
 
 #ifndef VERSION
-#define VERSION 3
+#define VERSION 1
 #endif
 
 #if VERSION == 2
@@ -40,9 +40,13 @@ VALUE result = ZERO;
 int main(void) {
 	// ========== Initialize host matrices ==========
 	VALUE* arr = (VALUE*)malloc(sizeof(VALUE) * N);
-	VALUE* partial_results = (VALUE*)calloc(N, sizeof(VALUE) * N);
-	if(!arr || !partial_results) {
-		printf("malloc failed!");
+	if(!arr) {
+		printf("malloc for arr failed!");
+		return EXIT_FAILURE;
+	}
+	VALUE* partial_results = (VALUE*)calloc(N, sizeof(VALUE));
+	if(!partial_results) {
+		printf("calloc for partial_results failed!");
 		return EXIT_FAILURE;
 	}
 
@@ -107,15 +111,6 @@ int main(void) {
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_arr, CL_TRUE, 0, bytes, arr, 0, NULL, NULL));
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, partial_results, 0, NULL, NULL));
 
-	// ========== Set kernel arguments ==========
-	const size_t local_mem_size = local_work_size[0] * sizeof(VALUE);
-	const cl_int length = N;
-
-	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_arr));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 1, local_mem_size, NULL));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &length));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_partial_results));
-
 	// ========== Timing Setup ==========
 
 #if VERSION == 2
@@ -142,8 +137,16 @@ int main(void) {
 #endif
 
 	// ========== Enqueue kernels ==========
+	const size_t local_mem_size = local_work_size[0] * sizeof(VALUE);
 
 #if VERSION == 2
+	const cl_int length = N;
+
+	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_arr));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 1, local_mem_size, NULL));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &length));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_partial_results));
+
 	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &kernel_event));
 #else
 	int stage = 0;
@@ -196,7 +199,7 @@ int main(void) {
 	// ========== Read result back to host ==========
 
 #if VERSION == 2
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, &partial_results, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, partial_results, 0, NULL, NULL));
 
 	for(size_t i = 0; i < N; i++) {
 		result += partial_results[i];
