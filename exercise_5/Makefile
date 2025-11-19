@@ -1,66 +1,40 @@
 CC=gcc
 CFLAGS=-std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -g3 -O3
-LIBS=-lOpenCL -lm -lgomp
-
+LDFLAGS=
 DEPS=clu_errcheck.h clu_setup.h
 SRC=clu_setup.c
+LIBS=-lOpenCL -lm -lgomp
 
-# ================================
-#  Parameter Flags
-# ================================
 FLAGS=
 SUFFIX=
-
 ifdef N
 FLAGS+=-DN=$(N)
 SUFFIX:=_N$(N)
 endif
-
+ifdef LOCAL_WORKGROUP_SIZE
+FLAGS+=-DLOCAL_WORKGROUP_SIZE=$(LOCAL_WORKGROUP_SIZE)
+SUFFIX:=$(SUFFIX)_WG$(LOCAL_WORKGROUP_SIZE)
+endif
 ifdef FLOAT
 FLAGS+=-DFLOAT
 SUFFIX:=$(SUFFIX)_float
 endif
 
-ifdef LOCAL_WORKGROUP_SIZE
-FLAGS+=-DLOCAL_WORKGROUP_SIZE=$(LOCAL_WORKGROUP_SIZE)
-SUFFIX:=$(SUFFIX)_WG$(LOCAL_WORKGROUP_SIZE)
+ifeq ($(OS),Windows_NT)
+CLEAN=del /Q sequential_reduction*.exe parallel_reduction*.exe
+else
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(sequential_reduction|parallel_reduction)?(_N[0-9]+)?(_WG[0-9]+)?(_float)?" -delete
 endif
 
-ifdef DETAILED
-FLAGS+=-DDETAILED_TIMING
-SUFFIX:=$(SUFFIX)_detailed
-endif
+all: sequential_reduction$(SUFFIX) parallel_reduction$(SUFFIX)
 
-# ================================
-#  Targets
-# ================================
-all: seq$(SUFFIX) wg$(SUFFIX) multistage$(SUFFIX)
-
-
-# ------------------------------------------------------------
-#  1. Sequential Reduction
-# ------------------------------------------------------------
-seq$(SUFFIX): sequential_reduction.c $(SRC) $(DEPS)
+sequential_reduction$(SUFFIX): sequential_reduction.c $(SRC) $(DEPS)
 	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(FLAGS) $(LIBS)
 
+parallel_reduction$(SUFFIX): parallel_reduction.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
 
-# ------------------------------------------------------------
-#  2. Work-group Parallel Reduction
-# ------------------------------------------------------------
-wg$(SUFFIX): wg_reduction.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(FLAGS) $(LIBS)
-
-
-# ------------------------------------------------------------
-#  3. Multi-Stage Reduction (arbitrary vector sizes)
-# ------------------------------------------------------------
-multistage$(SUFFIX): multistage_reduction.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(FLAGS) $(LIBS)
-
-
-# ================================
-#  Cleanup
-# ================================
 clean:
-	rm -f seq_* wg_* multistage_* \
-	      seq wg multistage
+	$(CLEAN)
+
+.PHONY: all clean
