@@ -11,28 +11,27 @@ ifdef N
 FLAGS+=-DN=$(N)
 SUFFIX:=_N$(N)
 endif
-ifdef LOCAL_WORKGROUP_SIZE
-FLAGS+=-DLOCAL_WORKGROUP_SIZE=$(LOCAL_WORKGROUP_SIZE)
-SUFFIX:=$(SUFFIX)_WG$(LOCAL_WORKGROUP_SIZE)
-endif
 ifdef FLOAT
 FLAGS+=-DFLOAT
 SUFFIX:=$(SUFFIX)_float
 endif
 
 ifeq ($(OS),Windows_NT)
-CLEAN=del /Q sequential_reduction*.exe parallel_reduction*.exe
+CLEAN=del /Q sequential_reduction*.exe parallel_reduction*.exe multistage_reduction*.exe
 else
-CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(sequential_reduction|parallel_reduction)?(_N[0-9]+)?(_WG[0-9]+)?(_float)?" -delete
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(sequential_reduction|parallel_reduction|multistage_reduction)?(_N[0-9]+)?(_float)?" -delete
 endif
 
 all: sequential_reduction$(SUFFIX) parallel_reduction$(SUFFIX)
 
-sequential_reduction$(SUFFIX): sequential_reduction.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(FLAGS) $(LIBS)
+sequential_reduction$(SUFFIX): reduction.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=1
 
-parallel_reduction$(SUFFIX): parallel_reduction.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
+parallel_reduction$(SUFFIX): reduction.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2
+
+multistage_reduction$(SUFFIX): reduction.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=3
 
 clean:
 	$(CLEAN)
