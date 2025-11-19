@@ -13,7 +13,7 @@
 #endif
 
 #ifndef VERSION
-#define VERSION 2
+#define VERSION 3
 #endif
 
 #if VERSION == 2
@@ -35,16 +35,20 @@
 #define PRINT_FMT "%d"
 #endif
 
-VALUE arr[N];
-VALUE partial_results[N];
 VALUE result = ZERO;
 
 int main(void) {
 	// ========== Initialize host matrices ==========
+	VALUE* arr = (VALUE*)malloc(sizeof(VALUE) * N);
+	VALUE* partial_results = (VALUE*)calloc(N, sizeof(VALUE) * N);
+	if(!arr || !partial_results) {
+		printf("malloc failed!");
+		return EXIT_FAILURE;
+	}
+
 	for(size_t i = 0; i < N; i++) {
 		arr[i] = ONE;
 	}
-	memset(partial_results, ZERO, sizeof(partial_results));
 
 #if VERSION == 1
 	const double start_time = omp_get_wtime();
@@ -112,13 +116,14 @@ int main(void) {
 	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &length));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_partial_results));
 
-	// ========== Allocate timing arrays ==========
+	// ========== Timing Setup ==========
 
 #if VERSION == 2
 	cl_event kernel_event;
 #else
-	cl_event* kernel_events = (cl_event*)malloc(sizeof(cl_event));
-	double* kernel_times = (double*)malloc(sizeof(double));
+	int stages = (int)ceil(log2((double)global_work_size[0] / (double)local_work_size[0]));
+	cl_event* kernel_events = (cl_event*)malloc(stages * sizeof(cl_event));
+	double* kernel_times = (double*)malloc(stages * sizeof(double));
 
 	if(kernel_events == NULL || kernel_times == NULL) {
 		fprintf(stderr, "Failed to allocate memory for timing arrays\n");
@@ -140,17 +145,53 @@ int main(void) {
 
 #if VERSION == 2
 	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &kernel_event));
-	CLU_ERRCHECK(clWaitForEvents(1, &kernel_event));
+#else
+	int stage = 0;
+	size_t stage_input_size = N;
+
+	cl_mem buf_in = buf_arr;
+	cl_mem buf_out = buf_partial_results;
+
+	while(stage_input_size > 1) {
+		size_t num_groups = (stage_input_size + local_work_size[0] - 1) / local_work_size[0];
+		size_t stage_global = num_groups * local_work_size[0];
+
+		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_in));
+		CLU_ERRCHECK(clSetKernelArg(kernel, 1, local_mem_size, NULL));
+		CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &stage_input_size));
+		CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_out));
+
+		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, &stage_global, local_work_size, 0, NULL, &kernel_events[stage]));
+
+		cl_mem tmp = buf_in;
+		buf_in = buf_out;
+		buf_out = tmp;
+
+		stage_input_size = num_groups;
+		stage++;
+	}
 #endif
 
 	// ========== Extract kernel timing information ==========
 	cl_ulong kernel_time = 0;
 	cl_ulong start, end;
+#if VERSION == 2
+	CLU_ERRCHECK(clWaitForEvents(1, &kernel_event));
 	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
 	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
 	kernel_time = end - start;
 	const double elapsed_ms = (double)(kernel_time * 1e-6);
 	CLU_ERRCHECK(clReleaseEvent(kernel_event));
+#else
+	CLU_ERRCHECK(clWaitForEvents(1, &kernel_events[stage - 1]));
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[stage - 1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
+	kernel_time = end - start;
+	const double elapsed_ms = (double)(kernel_time * 1e-6);
+	for(int i = 0; i < stage; i++) {
+		CLU_ERRCHECK(clReleaseEvent(kernel_events[i]));
+	}
+#endif
 
 	// ========== Read result back to host ==========
 
@@ -160,6 +201,8 @@ int main(void) {
 	for(size_t i = 0; i < N; i++) {
 		result += partial_results[i];
 	}
+#else
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_in, CL_TRUE, 0, sizeof(VALUE), &result, 0, NULL, NULL));
 #endif
 
 #endif
@@ -191,6 +234,9 @@ int main(void) {
 	free(source_str);
 	clu_release(&env);
 #endif
+
+	free(arr);
+	free(partial_results);
 
 	return EXIT_SUCCESS;
 }
