@@ -31,8 +31,8 @@
 #define ZERO (0)
 #endif
 
-
 VALUE u[N];
+VALUE partial_results[N];
 VALUE result = ZERO;
 
 int main(void) {
@@ -66,6 +66,7 @@ int main(void) {
 
 	// ========== Initialize host matrices ==========
 	memset(u, 1, sizeof(u));
+	memset(partial_results, 0, sizeof(partial_results));
 
 	// ========== Setup kernel parameters ==========
 	const size_t bytes = sizeof(VALUE) * N;
@@ -75,21 +76,21 @@ int main(void) {
 	// ========== Create device buffers ==========
 	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
+	cl_mem buf_partial_results = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
+	CLU_ERRCHECK(err);
 
 	// ========== Write data to device ==========
 	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
 
-	// ========== Set constant kernel arguments ==========
+	// ========== Set kernel arguments ==========
+	const size_t local_mem_size = local_work_size[0] * sizeof(VALUE);
+	const cl_int length = N;
 
-	const cl_int pitch = (cl_int)local_work_size[0] + 2;
-	const cl_int dim = N;
-	const size_t local_mem_size = pitch * (local_work_size[1] + 2) * sizeof(VALUE);
-
-	CLU_ERRCHECK(clSetKernelArg(kernel, 3, local_mem_size, NULL));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 4, sizeof(cl_int), &pitch));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 5, sizeof(cl_int), &dim));
-	CLU_ERRCHECK(clSetKernelArg(kernel, 6, sizeof(VALUE), (void*)&factor));
-
+	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 1, local_mem_size, NULL));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &length));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_partial_results));
 
 	// ========== Allocate timing arrays ==========
 	cl_event* kernel_events = (cl_event*)malloc(sizeof(cl_event));
@@ -111,109 +112,41 @@ int main(void) {
 	}
 
 	// ========== Enqueue kernels ==========
-	for(int it = 0; it < IT; it++) {
-		CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
-		CLU_ERRCHECK(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&buf_result));
 
-#ifdef DETAILED_TIMING
-		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, &kernel_events[it]));
-#else
-		CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
+#if VERSION == 2
+	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &kernel_events));
+	CLU_ERRCHECK(clWaitForEvents(1, kernel_events));
 #endif
 
-		cl_mem temp = buf_u;
-		buf_u = buf_tmp;
-		buf_tmp = temp;
-	}
-
-#ifdef DETAILED_TIMING
-	CLU_ERRCHECK(clWaitForEvents(IT, kernel_events));
-#endif
-
-#ifdef DETAILED_TIMING
 	// ========== Extract kernel timing information ==========
-	cl_ulong total_kernel_time = 0;
+	cl_ulong elapsed_ms = 0;
+	cl_ulong start, end;
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
+	elapsed_ms = end - start;
+	CLU_ERRCHECK(clReleaseEvent(kernel_events));
 
-	for(int it = 0; it < IT; it++) {
-		cl_ulong queued, start, end;
-		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
-		CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events[it], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
+	// ========== Read result back to host ==========
 
-		cl_ulong queue_elapsed = start - queued;
-		cl_ulong elapsed = end - start;
+#if VERSION == 2
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, sizeof(VALUE), &partial_results, 0, NULL, NULL));
+#endif
 
-		total_queue_time += queue_elapsed;
-		total_kernel_time += elapsed;
+	// ========== Check Results ==========
 
-		kernel_times[it] = (double)(elapsed * 1e-6);
-		queue_times[it] = (double)(queue_elapsed * 1e-6);
-
-		CLU_ERRCHECK(clReleaseEvent(kernel_events[it]));
+#if VERSION == 2
+	for(size_t i = 0; i < N; i++) {
+		result += partial_results[i];
 	}
 #endif
+
+	// ========== Print summary statistics ==========
 
 #ifdef FLOAT
 	const char* prec = "float";
 #else
 	const char* prec = "int";
 #endif
-
-
-#ifdef DETAILED_TIMING
-	// ========== Write timing data to CSV file ==========
-	char detail_filename[256];
-#ifdef FLOAT
-	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_float.csv", N, IT);
-#else
-	snprintf(detail_filename, sizeof(detail_filename), "kernel_times_N%d_IT%d_double.csv", N, IT);
-#endif
-
-	FILE* detail_file = fopen(detail_filename, "w");
-	if(detail_file != NULL) {
-		fprintf(detail_file, "iteration,kernel_time_ms,queue_time_ms\n");
-		for(int it = 0; it < IT; it++) {
-			fprintf(detail_file, "%d,%.6f,%.6f\n", it, kernel_times[it], queue_times[it]);
-		}
-		fclose(detail_file);
-	}
-
-	free(kernel_events);
-	free(kernel_times);
-	free(queue_times);
-#endif
-
-	// ========== Read result back to host ==========
-
-#ifdef DETAILED_TIMING
-	cl_event read_event;
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, &read_event));
-#else
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-#endif
-	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
-
-
-#ifdef DETAILED_TIMING
-	// ========== Measure read times ==========
-	cl_ulong read_queued, read_start, read_end;
-	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &read_queued, NULL));
-	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &read_start, NULL));
-	CLU_ERRCHECK(clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &read_end, NULL));
-
-	total_queue_time += (read_start - read_queued);
-	cl_ulong total_read_time = read_end - read_start;
-
-	CLU_ERRCHECK(clReleaseEvent(read_event));
-#endif
-
-	// ========== Check Results ==========
-
-
-	// ========== Print summary statistics ==========
-
-	int total_operations = 3 + IT + 1; // 3 writes + IT kernels + 1 read
-	double avg_queue_time = (double)(total_queue_time * 1e-6) / total_operations;
 
 #if VERSION == 1
 	printf("sequential_reduction,%s,%d,%s,%.3f\n", prec, N, abs(result - N), elapsed_ms);
@@ -229,7 +162,7 @@ int main(void) {
 	CLU_ERRCHECK(clReleaseKernel(kernel));
 	CLU_ERRCHECK(clReleaseProgram(program));
 	CLU_ERRCHECK(clReleaseMemObject(buf_u));
-	CLU_ERRCHECK(clReleaseMemObject(buf_f));
+	CLU_ERRCHECK(clReleaseMemObject(buf_partial_results));
 	free(source_str);
 	clu_release(&env);
 
