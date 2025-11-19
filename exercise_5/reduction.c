@@ -26,16 +26,35 @@
 #ifdef FLOAT
 #define VALUE float
 #define ZERO (0.0f)
+#define ONE (1.0f)
+#define PRINT_FMT "%.3f"
 #else
 #define VALUE int
 #define ZERO (0)
+#define ONE (1)
+#define PRINT_FMT "%d"
 #endif
 
-VALUE u[N];
+VALUE arr[N];
 VALUE partial_results[N];
 VALUE result = ZERO;
 
 int main(void) {
+	// ========== Initialize host matrices ==========
+	for(size_t i = 0; i < N; i++) {
+		arr[i] = ONE;
+	}
+	memset(partial_results, ZERO, sizeof(partial_results));
+
+#if VERSION == 1
+	const double start_time = omp_get_wtime();
+
+	for(size_t i = 0; i < N; i++) {
+		result += arr[i];
+	}
+
+	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
+#else
 	// ========== Initialization ==========
 	clu_env env;
 	cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
@@ -53,7 +72,12 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
-	cl_program program = clu_create_program(env.context, env.device_id, source_str, source_size, NULL);
+#ifdef FLOAT
+	const char* options = "-DFLOAT=1";
+#else
+	const char* options = NULL;
+#endif
+	cl_program program = clu_create_program(env.context, env.device_id, source_str, source_size, options);
 	if(program == NULL) {
 		free(source_str);
 		clu_release(&env);
@@ -64,35 +88,35 @@ int main(void) {
 	cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
 	CLU_ERRCHECK(err);
 
-	// ========== Initialize host matrices ==========
-	memset(u, 1, sizeof(u));
-	memset(partial_results, 0, sizeof(partial_results));
-
 	// ========== Setup kernel parameters ==========
 	const size_t bytes = sizeof(VALUE) * N;
 	const size_t global_work_size[1] = {(size_t)N};
 	const size_t local_work_size[1] = {256};
 
 	// ========== Create device buffers ==========
-	cl_mem buf_u = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
+	cl_mem buf_arr = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 	cl_mem buf_partial_results = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 
 	// ========== Write data to device ==========
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_u, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, u, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_arr, CL_TRUE, 0, bytes, arr, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, partial_results, 0, NULL, NULL));
 
 	// ========== Set kernel arguments ==========
 	const size_t local_mem_size = local_work_size[0] * sizeof(VALUE);
 	const cl_int length = N;
 
-	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_u));
+	CLU_ERRCHECK(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&buf_arr));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 1, local_mem_size, NULL));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 2, sizeof(cl_int), &length));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&buf_partial_results));
 
 	// ========== Allocate timing arrays ==========
+
+#if VERSION == 2
+	cl_event kernel_event;
+#else
 	cl_event* kernel_events = (cl_event*)malloc(sizeof(cl_event));
 	double* kernel_times = (double*)malloc(sizeof(double));
 
@@ -104,43 +128,43 @@ int main(void) {
 		CLU_ERRCHECK(clFinish(env.command_queue));
 		CLU_ERRCHECK(clReleaseKernel(kernel));
 		CLU_ERRCHECK(clReleaseProgram(program));
-		CLU_ERRCHECK(clReleaseMemObject(buf_u));
+		CLU_ERRCHECK(clReleaseMemObject(buf_arr));
 		free(source_str);
 		clu_release(&env);
 
 		return EXIT_FAILURE;
 	}
+#endif
 
 	// ========== Enqueue kernels ==========
 
 #if VERSION == 2
-	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &kernel_events));
-	CLU_ERRCHECK(clWaitForEvents(1, kernel_events));
+	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &kernel_event));
+	CLU_ERRCHECK(clWaitForEvents(1, &kernel_event));
 #endif
 
 	// ========== Extract kernel timing information ==========
-	cl_ulong elapsed_ms = 0;
+	cl_ulong kernel_time = 0;
 	cl_ulong start, end;
-	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
-	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_events, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
-	elapsed_ms = end - start;
-	CLU_ERRCHECK(clReleaseEvent(kernel_events));
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
+	kernel_time = end - start;
+	const double elapsed_ms = (double)(kernel_time * 1e-6);
+	CLU_ERRCHECK(clReleaseEvent(kernel_event));
 
 	// ========== Read result back to host ==========
 
 #if VERSION == 2
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, sizeof(VALUE), &partial_results, 0, NULL, NULL));
-#endif
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_partial_results, CL_TRUE, 0, bytes, &partial_results, 0, NULL, NULL));
 
-	// ========== Check Results ==========
-
-#if VERSION == 2
 	for(size_t i = 0; i < N; i++) {
 		result += partial_results[i];
 	}
 #endif
 
-	// ========== Print summary statistics ==========
+#endif
+
+	// ========== Print results ==========
 
 #ifdef FLOAT
 	const char* prec = "float";
@@ -149,22 +173,24 @@ int main(void) {
 #endif
 
 #if VERSION == 1
-	printf("sequential_reduction,%s,%d,%s,%.3f\n", prec, N, abs(result - N), elapsed_ms);
+	printf("sequential_reduction,%s,%d," PRINT_FMT ",%.3f\n", prec, N, result, elapsed_ms);
 #elif VERSION == 2
-	printf("parallel_reduction,%s,%d,%s,%.3f\n", prec, N, abs(result - N), elapsed_ms);
+	printf("parallel_reduction,%s,%d," PRINT_FMT ",%.3f\n", prec, N, result, elapsed_ms);
 #elif VERSION == 3
-	printf("multistage_reduction,%s,%d,%s,%.3f\n", prec, N, abs(result - N), elapsed_ms);
+	printf("multistage_reduction,%s,%d," PRINT_FMT ",%.3f\n", prec, N, result, elapsed_ms);
 #endif
 
+#if VERSION != 1
 	// ========== Cleanup ==========
 	CLU_ERRCHECK(clFlush(env.command_queue));
 	CLU_ERRCHECK(clFinish(env.command_queue));
 	CLU_ERRCHECK(clReleaseKernel(kernel));
 	CLU_ERRCHECK(clReleaseProgram(program));
-	CLU_ERRCHECK(clReleaseMemObject(buf_u));
+	CLU_ERRCHECK(clReleaseMemObject(buf_arr));
 	CLU_ERRCHECK(clReleaseMemObject(buf_partial_results));
 	free(source_str);
 	clu_release(&env);
+#endif
 
 	return EXIT_SUCCESS;
 }

@@ -22,7 +22,7 @@ else
 CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(sequential_reduction|parallel_reduction|multistage_reduction)?(_N[0-9]+)?(_float)?" -delete
 endif
 
-all: sequential_reduction$(SUFFIX) parallel_reduction$(SUFFIX)
+all: sequential_reduction$(SUFFIX) parallel_reduction$(SUFFIX) multistage_reduction$(SUFFIX)
 
 sequential_reduction$(SUFFIX): reduction.c $(SRC) $(DEPS)
 	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=1
