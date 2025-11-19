@@ -1,4 +1,4 @@
-version,precision,N,result,elapsed_ms 
+version,precision,N,result,elapsed_ms
 sequential_reduction,int,1024,1024,0.000
 parallel_reduction,int,1024,1024,0.029
 multistage_reduction,int,1024,1024,0.046
