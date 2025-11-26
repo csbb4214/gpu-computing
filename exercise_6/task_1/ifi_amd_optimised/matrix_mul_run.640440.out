@@ -1,0 +1,20 @@
+[INFO] Starting matrix_mul benchmark job...
+[INFO] Host: gc27
+[INFO] Job ID: 640440
+[INFO] Start time: Wed Nov 26 12:25:26 CET 2025
+
+[INFO] N=512 (10 runs each binary)
+[INFO] Running OpenCL float binary for N=512: ./matrix_mul_N512_float
+[INFO] Running OpenCL double binary for N=512: ./matrix_mul_N512_double
+[INFO] N=1024 (10 runs each binary)
+[INFO] Running OpenCL float binary for N=1024: ./matrix_mul_N1024_float
+[INFO] Running OpenCL double binary for N=1024: ./matrix_mul_N1024_double
+[INFO] N=2048 (10 runs each binary)
+[INFO] Running OpenCL float binary for N=2048: ./matrix_mul_N2048_float
+[INFO] Running OpenCL double binary for N=2048: ./matrix_mul_N2048_double
+[INFO] N=2000 (10 runs each binary)
+[INFO] Running OpenCL float binary for N=2000: ./matrix_mul_N2000_float
+[INFO] Running OpenCL double binary for N=2000: ./matrix_mul_N2000_double
+
+[DONE] Results written to matrix_mul_results.csv
+[INFO] End time: Wed Nov 26 12:26:11 CET 2025

@@ -11,12 +11,12 @@ import matplotlib.ticker as ticker
 # -------------------------------------------------------
 
 FILES = [
-    "results/results_peter.csv",
-    "results/results_ifi_rtx.csv",
-    "results/results_ifi_amd.csv",
+    "results_peter.csv",
+    "results_ifi_rtx.csv",
+    "results_ifi_amd.csv",
 ]
 
-OUT_DIR = "plots_matrix_mul"
+OUT_DIR = "plots"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 DEVICE_INFO = {
@@ -98,12 +98,13 @@ def format_N_label(n: int) -> str:
 # Plot 1: Runtime vs N per device (float vs double)
 # -------------------------------------------------------
 
+
 def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
     """
     Für jedes Device:
-      x: N (Matrixdimension)
+      x: N (Matrixdimension, aber als Kategorien gleich weit auseinander)
       y: elapsed_ms_mean
-      Linien: float vs double
+      Punkte: float vs double (keine Linien)
     """
     devices = sorted(df_mean["device"].unique())
 
@@ -112,6 +113,10 @@ def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
         if dev_data.empty:
             continue
 
+        # Alle N-Werte für dieses Device, sortiert
+        Ns_all = sorted(dev_data["N"].unique())
+        index_of = {n: i for i, n in enumerate(Ns_all)}  # N -> Position 0,1,2,...
+
         plt.figure(figsize=(10, 6))
 
         for prec, marker in zip(["float", "double"], ["o", "s"]):
@@ -119,21 +124,25 @@ def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
             if prec_data.empty:
                 continue
 
-            Ns = prec_data["N"].values.astype(float)
+            # x: Index-Position, y: Zeit
+            xs = prec_data["N"].map(index_of).values.astype(float)
             times = prec_data["elapsed_ms_mean"].values.astype(float)
 
             plt.plot(
-                Ns,
+                xs,
                 times,
                 marker=marker,
-                linewidth=2,
+                linestyle="None",  # <- keine Linie, nur Punkte
                 markersize=8,
                 label=prec,
             )
 
-        plt.xscale("log")
-        Ns_all = sorted(dev_data["N"].unique())
-        plt.xticks(Ns_all, [format_N_label(n) for n in Ns_all])
+        # x-Achse: gleiche Abstände, Labels sind die N-Werte
+        plt.xticks(
+            range(len(Ns_all)),
+            [format_N_label(n) for n in Ns_all]
+        )
+
         plt.xlabel("Matrix size N (N×N)")
         plt.ylabel("Time (ms)")
 
@@ -155,18 +164,17 @@ def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
         plt.savefig(os.path.join(OUT_DIR, fname), dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved plot: {fname}")
-
-
 # -------------------------------------------------------
 # Plot 2: Device comparison per precision (Runtime vs N)
 # -------------------------------------------------------
 
+
 def plot_device_comparison_per_precision(log_y: bool = False) -> None:
     """
     Für jede Precision (float / double):
-      x: N
+      x: N (als Kategorien mit gleichen Abständen)
       y: elapsed_ms_mean
-      Linien: verschiedene Devices → direkter Vergleich
+      Punkte: verschiedene Devices (keine Linien)
     """
     for prec in ["float", "double"]:
         data_prec = df_mean[df_mean["precision"] == prec]
@@ -176,6 +184,10 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
 
         plt.figure(figsize=(10, 6))
 
+        # Alle N-Werte für diese Precision
+        Ns_all = sorted(data_prec["N"].unique())
+        index_of = {n: i for i, n in enumerate(Ns_all)}
+
         devices = sorted(data_prec["device"].unique())
         markers = ["o", "s", "D", "^"]
 
@@ -184,21 +196,22 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
             if dev_data.empty:
                 continue
 
-            Ns = dev_data["N"].values.astype(float)
+            xs = dev_data["N"].map(index_of).values.astype(float)
             times = dev_data["elapsed_ms_mean"].values.astype(float)
 
             plt.plot(
-                Ns,
+                xs,
                 times,
                 marker=marker,
-                linewidth=2,
+                linestyle="None",  # <- keine Linie
                 markersize=8,
                 label=DEVICE_INFO.get(dev, dev),
             )
 
-        plt.xscale("log")
-        Ns_all = sorted(data_prec["N"].unique())
-        plt.xticks(Ns_all, [format_N_label(n) for n in Ns_all])
+        plt.xticks(
+            range(len(Ns_all)),
+            [format_N_label(n) for n in Ns_all]
+        )
         plt.xlabel("Matrix size N (N×N)")
         plt.ylabel("Time (ms)")
         scale_label_y = " (log y-scale)" if log_y else ""
@@ -218,7 +231,6 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
         plt.savefig(os.path.join(OUT_DIR, fname), dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved plot: {fname}")
-
 
 # -------------------------------------------------------
 # Plot 3: Bars for largest N (per precision)
