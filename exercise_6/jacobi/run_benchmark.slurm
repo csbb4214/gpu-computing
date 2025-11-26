@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=10000
-#SBATCH --partition=IFIAMD
+#SBATCH --partition=IFIgpu2070
 #SBATCH --gres=gpu:1
 #SBATCH --time=01:00:00
 #SBATCH --output=jacobi_v3.%j.out

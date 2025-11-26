@@ -150,9 +150,9 @@ int main(void) {
 #if VERSION == 2
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, sizeof(VALUE), (void*)&factor));
 #else
-	const cl_int pitch = (cl_int)local_work_size[0] + 2;
+	const cl_int pitch = (cl_int)local_work_size[1] + 2;
 	const cl_int dim = N;
-	const size_t local_mem_size = pitch * (local_work_size[1] + 2) * sizeof(VALUE);
+	const size_t local_mem_size = pitch * (local_work_size[0] + 2) * sizeof(VALUE);
 
 	CLU_ERRCHECK(clSetKernelArg(kernel, 3, local_mem_size, NULL));
 	CLU_ERRCHECK(clSetKernelArg(kernel, 4, sizeof(cl_int), &pitch));
