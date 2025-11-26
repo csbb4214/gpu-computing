@@ -1,0 +1,60 @@
+CC=gcc
+CFLAGS=-std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -g3 -O3
+LDFLAGS=
+DEPS=clu_errcheck.h clu_setup.h
+SRC=clu_setup.c
+LIBS=-lOpenCL -lm -lgomp
+
+# use double: 	make all N=1024 IT=100
+# use float: 	make all N=1024 IT=100 FLOAT=1
+# for detailed timing, use: -DDETAILED_TIMING
+
+FLAGS=
+SUFFIX=
+ifdef N
+FLAGS+=-DN=$(N)
+SUFFIX:=_N$(N)
+endif
+ifdef IT
+FLAGS+=-DIT=$(IT)
+SUFFIX:=$(SUFFIX)_IT$(IT)
+endif
+ifdef LOCAL_WORKGROUP_DIM_1
+FLAGS+=-DLOCAL_WORKGROUP_DIM_1=$(LOCAL_WORKGROUP_DIM_1)
+SUFFIX:=$(SUFFIX)_DIM1-$(LOCAL_WORKGROUP_DIM_1)
+endif
+ifdef LOCAL_WORKGROUP_DIM_2
+FLAGS+=-DLOCAL_WORKGROUP_DIM_2=$(LOCAL_WORKGROUP_DIM_2)
+SUFFIX:=$(SUFFIX)_DIM2-$(LOCAL_WORKGROUP_DIM_2)
+endif
+ifdef FLOAT
+FLAGS+=-DFLOAT
+SUFFIX:=$(SUFFIX)_float
+endif
+
+ifeq ($(OS),Windows_NT)
+CLEAN=del /Q jacobi*.exe
+else
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./jacobi_ocl?(_N[0-9]+)?(_IT[0-9]+)?(_DIM1-[0-9]+)?(_DIM2-[0-9]+)?(_float)?_V(2|3)(_Detailed)?" -delete
+endif
+
+all: jacobi_ocl$(SUFFIX)_V3
+
+jacobi_ocl$(SUFFIX)_V2: jacobi_ocl.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2
+
+jacobi_ocl$(SUFFIX)_V3: jacobi_ocl.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=3
+
+detailed_timing: jacobi_ocl$(SUFFIX)_V2_Detailed jacobi_ocl$(SUFFIX)_V3_Detailed
+
+jacobi_ocl$(SUFFIX)_V2_Detailed: jacobi_ocl.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2 -DDETAILED_TIMING
+
+jacobi_ocl$(SUFFIX)_V3_Detailed: jacobi_ocl.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=3 -DDETAILED_TIMING
+
+clean:
+	$(CLEAN)
+
+.PHONY: all detailed_timing clean
