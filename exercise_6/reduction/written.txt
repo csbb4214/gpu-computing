@@ -1,0 +1,26 @@
+Worksize 256 (Baseline):
+AMD zeigt klaren Vorteil: 1,51-1,57x schneller als NVIDIA bei großen Problemen (N=536M)
+Überlegenheit bei kleinen Problemen: AMD zeigt extreme Performance-Vorteile (bis zu 40x schneller) bei N=1024
+Float: NVIDIA erreicht höhere Speedups (25,03x vs 17,48x), aber AMDs schnellere Baseline macht es absolut schneller
+Int: NIVIDIAs Speedups sind mehr als doppelt so hoch wie bei AMD, aber AMDs 3,26x schnellere Baseline macht es auch hier absolut schneller
+
+
+Worksize 128 (Optimiert):
+Verbesserte AMD-Performance: AMD jetzt 1,61-1,63x schneller als NVIDIA bei großen Problemen
+Konsistentes Muster: AMD behält Vorteil über alle Problemgrößen mit verbesserten Margen
+Float: AMD-Speedup steigt auf 18,18x (von 17,48x)
+Int: AMD verbessert sich auf 5,03x Speedup (von 4,86x)
+
+
+Worksize 64 (Weitere Optimierung):
+Beste AMD-Performance: AMD erreicht Spitzenvorteil von 1,70-1,74x schneller als NVIDIA bei großen Problemgrößen
+Maximale Speedups: AMD erreicht 19,08x für Float und 5,26x für Int; Die höchsten beobachteten Werte
+Fortschreitende Verbesserung: Trend zeigt, dass kleinere Worksizes die AMD-Architektur stärker begünstigen
+
+
+Erkenntnisse:
+AMD profitiert von kleineren Worksizes: Performance verbessert sich konsistent bei Verkleinerung von 256 → 128 → 64
+
+Tuning-Bedeutung: Die 19% Performance-Verbesserung von Worksize 256 auf 64 bei AMD unterstreicht die Parameteroptimierung für maximale Performance auf verschiedenen Hardware-Architekturen
+
+Die optimale Worksize-Konfiguration hängt von der Zielarchitektur ab, wobei kleinere Worksizes (64) die beste Performance für AMD liefern, während NVIDIA konsistent über den getesteten Bereich performt.
