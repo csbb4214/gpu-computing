@@ -23,4 +23,4 @@ AMD profitiert von kleineren Worksizes: Performance verbessert sich konsistent b
 
 Tuning-Bedeutung: Die 19% Performance-Verbesserung von Worksize 256 auf 64 bei AMD unterstreicht die Parameteroptimierung für maximale Performance auf verschiedenen Hardware-Architekturen
 
-Die optimale Worksize-Konfiguration hängt von der Zielarchitektur ab, wobei kleinere Worksizes (64) die beste Performance für AMD liefern, während NVIDIA konsistent über den getesteten Bereich performt.
+Die optimale Worksize-Konfiguration hängt von der Zielarchitektur ab, wobei kleinere Worksizes die beste Performance für AMD liefern.
