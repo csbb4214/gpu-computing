@@ -1,0 +1,10 @@
+OpenCL build log:
+(): Warning: Function matrix_mul_double is a kernel, so overriding noinline attribute. The function may be inlined when called.
+(): Warning: Function matrix_mul_float is a kernel, so overriding noinline attribute. The function may be inlined when called.
+
+
+OpenCL build log:
+(): Warning: Function matrix_mul_double is a kernel, so overriding noinline attribute. The function may be inlined when called.
+(): Warning: Function matrix_mul_float is a kernel, so overriding noinline attribute. The function may be inlined when called.
+
+
