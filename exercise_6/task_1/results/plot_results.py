@@ -14,6 +14,7 @@ FILES = [
     "results_peter.csv",
     "results_ifi_rtx.csv",
     "results_ifi_amd.csv",
+    "results_ifi_amd_optimised.csv",  # neu
 ]
 
 OUT_DIR = "plots"
@@ -23,6 +24,7 @@ DEVICE_INFO = {
     "peter": "RTX 2070 Laptop",
     "ifi_rtx": "ifi – RTX 2070",
     "ifi_amd": "ifi – AMD GPU",
+    "ifi_amd_optimised": "ifi – AMD GPU (optimised)",  # neu
 }
 
 sns.set_theme(style="whitegrid", context="talk")
@@ -98,7 +100,6 @@ def format_N_label(n: int) -> str:
 # Plot 1: Runtime vs N per device (float vs double)
 # -------------------------------------------------------
 
-
 def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
     """
     Für jedes Device:
@@ -132,7 +133,7 @@ def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
                 xs,
                 times,
                 marker=marker,
-                linestyle="None",  # <- keine Linie, nur Punkte
+                linestyle="None",  # keine Linie, nur Punkte
                 markersize=8,
                 label=prec,
             )
@@ -164,10 +165,11 @@ def plot_runtime_vs_N_per_device(log_y: bool = False) -> None:
         plt.savefig(os.path.join(OUT_DIR, fname), dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved plot: {fname}")
+
+
 # -------------------------------------------------------
 # Plot 2: Device comparison per precision (Runtime vs N)
 # -------------------------------------------------------
-
 
 def plot_device_comparison_per_precision(log_y: bool = False) -> None:
     """
@@ -189,7 +191,7 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
         index_of = {n: i for i, n in enumerate(Ns_all)}
 
         devices = sorted(data_prec["device"].unique())
-        markers = ["o", "s", "D", "^"]
+        markers = ["o", "s", "D", "^", "v", "P", "X"]  # falls später noch mehr Devices kommen
 
         for dev, marker in zip(devices, markers):
             dev_data = data_prec[data_prec["device"] == dev]
@@ -203,7 +205,7 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
                 xs,
                 times,
                 marker=marker,
-                linestyle="None",  # <- keine Linie
+                linestyle="None",  # keine Linie
                 markersize=8,
                 label=DEVICE_INFO.get(dev, dev),
             )
@@ -231,6 +233,7 @@ def plot_device_comparison_per_precision(log_y: bool = False) -> None:
         plt.savefig(os.path.join(OUT_DIR, fname), dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved plot: {fname}")
+
 
 # -------------------------------------------------------
 # Plot 3: Bars for largest N (per precision)
@@ -318,4 +321,3 @@ if __name__ == "__main__":
     plot_bar_largest_N()
 
     print(f"\nAll plots generated in '{OUT_DIR}' directory.")
-
