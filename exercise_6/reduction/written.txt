@@ -20,7 +20,12 @@ Fortschreitende Verbesserung: Trend zeigt, dass kleinere Worksizes die AMD-Archi
 
 Erkenntnisse:
 AMD profitiert von kleineren Worksizes: Performance verbessert sich konsistent bei Verkleinerung von 256 → 128 → 64
-
 Tuning-Bedeutung: Die 19% Performance-Verbesserung von Worksize 256 auf 64 bei AMD unterstreicht die Parameteroptimierung für maximale Performance auf verschiedenen Hardware-Architekturen
-
 Die optimale Worksize-Konfiguration hängt von der Zielarchitektur ab, wobei kleinere Worksizes die beste Performance für AMD liefern.
+
+
+
+Müssen Änderungen durchgeführt werden um gute Performance auf den neuen Systemen zu erzielen?
+
+Nein absolut nicht; Die Änderung der worksize kann sich zwar positiv auf die performance auswirken, macht aber nicht den fundamentalen Unterschied aus.
+Wenn man genau dasselbe Programm laufen lässt (worksize 256) sieht man schon einen sehr klaren performance boost gegenüber "IFIgpu2070".
