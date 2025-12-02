@@ -92,18 +92,23 @@ int main(int argc, char** argv) {
 	cl_mem buf_image = clCreateBuffer(env.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, total_bytes, data, &err);
 	CLU_ERRCHECK(err);
 
-	// Buffer for reduction results (min, max, sum for each component)
-	// -> 2D array: [components][3] where 0=min, 1=max, 2=sum
-	const size_t stats_buffer_size = components * WORKGROUP_SIZE * 3 * sizeof(unsigned long long);
-	cl_mem buf_stats = clCreateBuffer(env.context, CL_MEM_READ_WRITE, stats_buffer_size, NULL, &err);
-	CLU_ERRCHECK(err);
-
 	// Output image buffer
 	cl_mem buf_output = clCreateBuffer(env.context, CL_MEM_WRITE_ONLY, total_bytes, NULL, &err);
 	CLU_ERRCHECK(err);
 
 	// ========== KERNEL 1: Reduction to find min/max/sum ==========
 	printf("Performing reduction (min/max/sum)...\n");
+
+	// Global work size: one work item per pixel
+	const size_t global_work_size_reduce = (total_pixels + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE * WORKGROUP_SIZE;
+	const size_t local_work_size_reduce = WORKGROUP_SIZE;
+	const size_t num_workgroups = global_work_size_reduce / WORKGROUP_SIZE;
+
+	// Buffer for reduction results (min, max, sum for each component)
+	// -> 2D array: [num_workgroups * components][3] where 0=min, 1=max, 2=sum
+	const size_t stats_buffer_size = num_workgroups * components * 3 * sizeof(unsigned long long);
+	cl_mem buf_stats = clCreateBuffer(env.context, CL_MEM_READ_WRITE, stats_buffer_size, NULL, &err);
+	CLU_ERRCHECK(err);
 
 	// Set kernel arguments for reduction
 	err = clSetKernelArg(reduce_kernel, 0, sizeof(cl_mem), &buf_image);
@@ -116,10 +121,6 @@ int main(int argc, char** argv) {
 	CLU_ERRCHECK(err);
 	err = clSetKernelArg(reduce_kernel, 4, sizeof(int), &components);
 	CLU_ERRCHECK(err);
-
-	// Global work size: one work item per pixel
-	const size_t global_work_size_reduce = (total_pixels + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE * WORKGROUP_SIZE;
-	const size_t local_work_size_reduce = WORKGROUP_SIZE;
 
 	err = clEnqueueNDRangeKernel(env.command_queue, reduce_kernel, 1, NULL, &global_work_size_reduce, &local_work_size_reduce, 0, NULL, NULL);
 	CLU_ERRCHECK(err);
@@ -137,7 +138,7 @@ int main(int argc, char** argv) {
 		final_stats[c].sum = 0;
 
 		// Combine results from all workgroups
-		for(size_t i = 0; i < global_work_size_reduce / WORKGROUP_SIZE; ++i) {
+		for(size_t i = 0; i < num_workgroups; ++i) {
 			size_t base_idx = (i * components + c) * 3;
 
 			// Min

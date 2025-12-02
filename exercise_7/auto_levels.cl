@@ -12,10 +12,10 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 	const int workgroup_size = get_local_size(0);
 	const int workgroup_id = get_group_id(0);
 
-	// Local memory for reduction within workgroup
-	__local uchar local_min[MAX_COMPONENTS];
-	__local uchar local_max[MAX_COMPONENTS];
-	__local ulong local_sum[MAX_COMPONENTS];
+	// Local memory for reduction within workgroup - use uint for atomic operations
+	__local uint local_min[MAX_COMPONENTS];
+	__local uint local_max[MAX_COMPONENTS];
+	__local uint local_sum[MAX_COMPONENTS];
 
 	// Initialize local memory
 	for(int c = 0; c < components; c++) {
@@ -36,7 +36,7 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 		int base_idx = pixel * components;
 
 		for(int c = 0; c < components; c++) {
-			uchar val = image[base_idx + c];
+			uint val = (uint)image[base_idx + c];
 
 			// Update local min
 			atomic_min(&local_min[c], val);
@@ -45,7 +45,7 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 			atomic_max(&local_max[c], val);
 
 			// Update local sum
-			atomic_add(&local_sum[c], (ulong)val);
+			atomic_add(&local_sum[c], val);
 		}
 	}
 
@@ -57,7 +57,7 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 			int base_idx = (workgroup_id * components + c) * 3;
 			stats[base_idx] = (ulong)local_min[c];
 			stats[base_idx + 1] = (ulong)local_max[c];
-			stats[base_idx + 2] = local_sum[c];
+			stats[base_idx + 2] = (ulong)local_sum[c];
 		}
 	}
 }
