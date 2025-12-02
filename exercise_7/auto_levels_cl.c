@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 	}
 
 	// ========== Load and compile kernel ==========
-	const char kernel_path[] = "./auto-levels.cl";
+	const char kernel_path[] = "./auto_levels.cl";
 	size_t source_size = 0;
 	char* source_str = clu_load_kernel_source(kernel_path, &source_size);
 	if(source_str == NULL) {

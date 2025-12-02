@@ -18,7 +18,7 @@ endif
 all: $(TARGETS)
 
 # Serial
-auto_levels: auto_levels_serial.c $(DEPS)
+auto_levels: auto_levels.c $(DEPS)
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) -lgomp
 
 # OpenCL
