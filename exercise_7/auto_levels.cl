@@ -4,7 +4,7 @@
 
 // Reduction kernel to find min, max, and sum for each component
 // Each workgroup handles multiple pixels and reduces them locally
-// Output format: for each workgroup and component, we store [min, max, sum]
+// Output format: for each workgroup and component -> [min, max, sum]
 __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, const int width, const int height, const int components) {
 	const int total_pixels = width * height;
 	const int gid = get_global_id(0);
@@ -12,7 +12,7 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 	const int workgroup_size = get_local_size(0);
 	const int workgroup_id = get_group_id(0);
 
-	// Local memory for reduction within workgroup - use uint for atomic operations
+	// Local memory for reduction within workgroup - use uint for atomic operations (only type supported)
 	__local uint local_min[MAX_COMPONENTS];
 	__local uint local_max[MAX_COMPONENTS];
 	__local uint local_sum[MAX_COMPONENTS];
@@ -48,7 +48,6 @@ __kernel void reduce_stats(const __global uchar* image, __global ulong* stats, c
 			atomic_add(&local_sum[c], val);
 		}
 	}
-
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	// Write results to global memory (workgroup 0, component c writes to position [c][0,1,2])
