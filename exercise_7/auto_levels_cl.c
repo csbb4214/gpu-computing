@@ -18,8 +18,8 @@
 #define WORKGROUP_SIZE 256
 
 typedef struct {
-	unsigned char min;
-	unsigned char max;
+	stbi_uc min;
+	stbi_uc max;
 	unsigned long long sum;
 } ComponentStats;
 
@@ -141,11 +141,11 @@ int main(int argc, char** argv) {
 			size_t base_idx = (i * components + c) * 3;
 
 			// Min
-			unsigned char wg_min = (unsigned char)partial_stats[base_idx];
+			stbi_uc wg_min = (stbi_uc)partial_stats[base_idx];
 			if(wg_min < final_stats[c].min) final_stats[c].min = wg_min;
 
 			// Max
-			unsigned char wg_max = (unsigned char)partial_stats[base_idx + 1];
+			stbi_uc wg_max = (stbi_uc)partial_stats[base_idx + 1];
 			if(wg_max > final_stats[c].max) final_stats[c].max = wg_max;
 
 			// Sum
@@ -156,11 +156,11 @@ int main(int argc, char** argv) {
 	free(partial_stats);
 
 	// Calculate averages and scaling factors
-	unsigned char avg_val[MAX_COMPONENTS];
+	stbi_uc avg_val[MAX_COMPONENTS];
 	float min_fac[MAX_COMPONENTS], max_fac[MAX_COMPONENTS];
 
 	for(int c = 0; c < components; ++c) {
-		avg_val[c] = (unsigned char)(final_stats[c].sum / total_pixels);
+		avg_val[c] = (stbi_uc)(final_stats[c].sum / total_pixels);
 
 		if(avg_val[c] != final_stats[c].min) {
 			min_fac[c] = (float)avg_val[c] / ((float)avg_val[c] - (float)final_stats[c].min);
@@ -181,7 +181,7 @@ int main(int argc, char** argv) {
 	printf("Adjusting image levels...\n");
 
 	// Transfer scaling factors to GPU
-	cl_mem buf_avg = clCreateBuffer(env.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, components * sizeof(unsigned char), avg_val, &err);
+	cl_mem buf_avg = clCreateBuffer(env.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, components * sizeof(stbi_uc), avg_val, &err);
 	CLU_ERRCHECK(err);
 
 	cl_mem buf_min_fac = clCreateBuffer(env.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, components * sizeof(float), min_fac, &err);
