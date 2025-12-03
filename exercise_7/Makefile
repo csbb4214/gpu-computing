@@ -19,7 +19,7 @@ all: $(TARGETS)
 
 # Serial
 auto_levels: auto_levels.c $(DEPS)
-	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) -lgomp
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS)
 
 # OpenCL
 auto_levels_cl: auto_levels_cl.c $(SRC) $(DEPS)
