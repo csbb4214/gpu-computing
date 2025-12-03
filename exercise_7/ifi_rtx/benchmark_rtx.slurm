@@ -9,7 +9,8 @@
 #SBATCH --output=auto_levels_run.%j.out
 #SBATCH --error=auto_levels_run.%j.err
 
-# Build and run all auto_levels binaries and collect results in CSV.
+# Run auto_levels benchmarks and collect results in CSV.
+# Erwartung: Binaries wurden vorher mit ./build.sh gebaut!
 
 set -euo pipefail
 
@@ -32,8 +33,16 @@ if [[ ! -f "$INPUT_IMAGE" ]]; then
   exit 1
 fi
 
+# Prüfen, ob Binaries existieren
+for exe in "./auto_levels" "./auto_levels_cl"; do
+  if [[ ! -x "$exe" ]]; then
+    echo "[ERROR] Binary $exe not found or not executable."
+    echo "        Did you run ./build.sh ?"
+    exit 1
+  fi
+done
+
 # --- clean previous results ---
-[ -f build.log ] && rm build.log
 [ -f "$RESULTS" ] && rm "$RESULTS"
 
 # --- CSV header ---
@@ -43,45 +52,22 @@ fi
 # time_ib:    gpu_only_time
 echo "impl,elapsed_ms,time_ia,time_ib" >"$RESULTS"
 
-# --- build binaries ---
-echo "[INFO] Building binaries"
-
-if ! make all > build_temp.log 2>&1; then
-  echo "[ERROR] Build failed"
-  cat build_temp.log >> build.log
-  rm -f build_temp.log
-  exit 1
-fi
-
-if grep -qi "warning" build_temp.log; then
-  echo "[WARNING] Build warnings"
-  cat build_temp.log >> build.log
-fi
-rm -f build_temp.log
-
-# --- run benchmark ---
 echo "[INFO] Running $RUNS iterations for each implementation"
 
 for ((x = 1; x <= RUNS; x++)); do
   echo "[INFO] Run $x"
-  
-  if ! ./auto_levels "$INPUT_IMAGE" "$OUTPUT_IMAGE_SERIAL" >> "$RESULTS" 2>&1; then
+
+  # wichtig: srun verwenden, damit SLURM Ressourcen korrekt tracked
+  if ! srun ./auto_levels "$INPUT_IMAGE" "$OUTPUT_IMAGE_SERIAL" >>"$RESULTS" 2>&1; then
     echo "[ERROR] Serial version failed"
     exit 1
   fi
-  
-  if ! ./auto_levels_cl "$INPUT_IMAGE" "$OUTPUT_IMAGE_OCL" >> "$RESULTS" 2>&1; then
+
+  if ! srun ./auto_levels_cl "$INPUT_IMAGE" "$OUTPUT_IMAGE_OCL" >>"$RESULTS" 2>&1; then
     echo "[ERROR] OpenCL version failed"
     exit 1
   fi
 done
 
-# --- cleanup ---
-make clean
-
 echo "[DONE] Results written to $RESULTS"
-if [ -f build.log ]; then
-  echo "[NOTE] Warnings/errors logged to build.log"
-fi
-
 echo "[INFO] End time: $(date)"

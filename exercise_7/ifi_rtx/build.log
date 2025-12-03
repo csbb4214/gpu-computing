@@ -1,0 +1,20 @@
+gcc -o auto_levels auto_levels.c -std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -g3 -O3  -lOpenCL -lm -lgomp
+In file included from auto_levels.c:9:
+stb_image.h: In function ‘extend_receive’:
+stb_image.h:1136:18: warning: left shift of negative value [-Wshift-negative-value]
+ 1136 |       return (-1 << n) + k + 1;
+      |                  ^~
+stb_image.h: In function ‘bmp_load’:
+stb_image.h:3112:40: warning: operand of ‘?:’ changes signedness from ‘int’ to ‘uint32’ {aka ‘unsigned int’} due to unsignedness of other operand [-Wsign-compare]
+ 3112 |                uint32 v = (bpp == 16 ? get16le(s) : get32le(s));
+      |                                        ^~~~~~~~~~
+gcc -o auto_levels_cl auto_levels_cl.c clu_setup.c -std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -g3 -O3  -lOpenCL -lm -lgomp
+In file included from auto_levels_cl.c:7:
+stb_image.h: In function ‘extend_receive’:
+stb_image.h:1136:18: warning: left shift of negative value [-Wshift-negative-value]
+ 1136 |       return (-1 << n) + k + 1;
+      |                  ^~
+stb_image.h: In function ‘bmp_load’:
+stb_image.h:3112:40: warning: operand of ‘?:’ changes signedness from ‘int’ to ‘uint32’ {aka ‘unsigned int’} due to unsignedness of other operand [-Wsign-compare]
+ 3112 |                uint32 v = (bpp == 16 ? get16le(s) : get32le(s));
+      |                                        ^~~~~~~~~~
