@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 		avg_val[c] = (stbi_uc)(sum[c] / ((unsigned long long)width * height));
 		min_fac[c] = (float)avg_val[c] / ((float)avg_val[c] - (float)min_val[c]);
 		max_fac[c] = (255.0f - (float)avg_val[c]) / ((float)max_val[c] - (float)avg_val[c]);
-		printf("Component %1u: %3u/%3u/%3u * %3.2f/%3.2f\n", c, min_val[c], avg_val[c], max_val[c], min_fac[c], max_fac[c]);
+		// printf("Component %1u: %3u/%3u/%3u * %3.2f/%3.2f\n", c, min_val[c], avg_val[c], max_val[c], min_fac[c], max_fac[c]);
 	}
 
 	// adjust image -----------------------------------------------------------
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	printf("Done, took %12.6f ms\n", (omp_get_wtime() - start_time) * 1000.0);
+	printf("serial,%.6f\n", (omp_get_wtime() - start_time) * 1000.0);
 
 	stbi_write_png(argv[2], width, height, components, data, width * components);
 	stbi_image_free((void*)data);

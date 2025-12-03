@@ -43,7 +43,6 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	printf("Image: %dx%d, components: %d\n", width, height, components);
 	const size_t total_pixels = width * height;
 	const size_t total_bytes = total_pixels * components;
 
@@ -85,7 +84,8 @@ int main(int argc, char** argv) {
 	cl_kernel adjust_kernel = clCreateKernel(program, "adjust_levels", &err);
 	CLU_ERRCHECK(err);
 
-	const double start_time = omp_get_wtime();
+	// Start time (ii)
+	const double host_to_host_start = omp_get_wtime();
 
 	// ========== Create buffers ==========
 	// Input image buffer
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 	CLU_ERRCHECK(err);
 
 	// ========== KERNEL 1: Reduction to find min/max/sum ==========
-	printf("Performing reduction (min/max/sum)...\n");
+	cl_event event_reduction_enqueue, event_reduction_read;
 
 	// Global work size: one work item per pixel
 	const size_t global_work_size_reduce = (total_pixels + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE * WORKGROUP_SIZE;
@@ -122,13 +122,23 @@ int main(int argc, char** argv) {
 	err = clSetKernelArg(reduce_kernel, 4, sizeof(int), &components);
 	CLU_ERRCHECK(err);
 
-	err = clEnqueueNDRangeKernel(env.command_queue, reduce_kernel, 1, NULL, &global_work_size_reduce, &local_work_size_reduce, 0, NULL, NULL);
+	err =
+	    clEnqueueNDRangeKernel(env.command_queue, reduce_kernel, 1, NULL, &global_work_size_reduce, &local_work_size_reduce, 0, NULL, &event_reduction_enqueue);
 	CLU_ERRCHECK(err);
 
 	// Read back partial reduction results
 	unsigned long long* partial_stats = malloc(stats_buffer_size);
-	err = clEnqueueReadBuffer(env.command_queue, buf_stats, CL_TRUE, 0, stats_buffer_size, partial_stats, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(env.command_queue, buf_stats, CL_TRUE, 0, stats_buffer_size, partial_stats, 0, NULL, &event_reduction_read);
 	CLU_ERRCHECK(err);
+
+	// timing kernel 1
+	cl_ulong time_reduce_start, time_reduce_end;
+
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_reduction_enqueue, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time_reduce_start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_reduction_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &time_reduce_end, NULL));
+
+	CLU_ERRCHECK(clReleaseEvent(event_reduction_enqueue));
+	CLU_ERRCHECK(clReleaseEvent(event_reduction_read));
 
 	// ========== CPU: Final reduction and factor calculation ==========
 	ComponentStats final_stats[MAX_COMPONENTS];
@@ -175,11 +185,11 @@ int main(int argc, char** argv) {
 			max_fac[c] = 1.0f; // Avoid division by zero
 		}
 
-		printf("Component %d: %3u/%3u/%3u * %5.2f/%5.2f\n", c, final_stats[c].min, avg_val[c], final_stats[c].max, min_fac[c], max_fac[c]);
+		// printf("Component %d: %3u/%3u/%3u * %5.2f/%5.2f\n", c, final_stats[c].min, avg_val[c], final_stats[c].max, min_fac[c], max_fac[c]);
 	}
 
 	// ========== KERNEL 2: Adjust image levels ==========
-	printf("Adjusting image levels...\n");
+	cl_event event_adjust_enqueue, event_adjust_read;
 
 	// Transfer scaling factors to GPU
 	cl_mem buf_avg = clCreateBuffer(env.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, components * sizeof(stbi_uc), avg_val, &err);
@@ -213,15 +223,33 @@ int main(int argc, char** argv) {
 	const size_t global_work_size_adjust[2] = {(size_t)width, (size_t)height};
 	const size_t local_work_size_adjust[2] = {16, 16};
 
-	err = clEnqueueNDRangeKernel(env.command_queue, adjust_kernel, 2, NULL, global_work_size_adjust, local_work_size_adjust, 0, NULL, NULL);
+	err = clEnqueueNDRangeKernel(env.command_queue, adjust_kernel, 2, NULL, global_work_size_adjust, local_work_size_adjust, 0, NULL, &event_adjust_enqueue);
 	CLU_ERRCHECK(err);
 
 	// ========== Read back adjusted image ==========
-	err = clEnqueueReadBuffer(env.command_queue, buf_output, CL_TRUE, 0, total_bytes, data, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(env.command_queue, buf_output, CL_TRUE, 0, total_bytes, data, 0, NULL, &event_adjust_read);
 	CLU_ERRCHECK(err);
 
-	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
-	printf("Done, took %12.6f ms\n", elapsed_ms);
+	const double host_to_host_end = omp_get_wtime();
+
+	// timing kernel 2
+	cl_ulong time_adjust_start, time_adjust_end;
+
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_adjust_enqueue, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time_adjust_start, NULL));
+	CLU_ERRCHECK(clGetEventProfilingInfo(event_adjust_read, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &time_adjust_end, NULL));
+
+	CLU_ERRCHECK(clReleaseEvent(event_adjust_enqueue));
+	CLU_ERRCHECK(clReleaseEvent(event_adjust_read));
+
+	// ========== Print timing data ==========
+	cl_ulong gpu_cpu_time = time_adjust_end - time_reduce_start;
+	cl_ulong gpu_only_time = time_reduce_end - time_reduce_start + time_adjust_end - time_adjust_start;
+
+	const double time_ia = (double)(gpu_cpu_time * 1e-6);
+	const double time_ib = (double)(gpu_only_time * 1e-6);
+	const double time_ii = (host_to_host_end - host_to_host_start) * 1000.0;
+
+	printf("opencl,%.6f,%.6f,%.6f\n", time_ii, time_ia, time_ib);
 
 	// ========== Save output image ==========
 	stbi_write_png(argv[2], width, height, components, data, width * components);
