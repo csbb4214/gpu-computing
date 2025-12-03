@@ -28,13 +28,22 @@ auto_levels_cl: auto_levels_cl.c $(SRC) $(DEPS)
 clean:
 	$(CLEAN)
 
-# Test targets
-test-serial: auto_levels
-	./auto_levels test.png test_output_serial.png
-
-test-ocl: auto_levels_cl
-	./auto_levels_cl test.png test_output_ocl.png
-
+# Run using test.png
 test: test-serial test-ocl
 
-.PHONY: all clean clean-all test test-serial test-ocl
+test-serial:
+	./auto_levels test.png test_output_serial.png
+
+test-ocl:
+	./auto_levels_cl test.png test_output_ocl.png
+
+# Run using earth-huge.png
+run: run-serial run-ocl
+
+run-serial:
+	./auto_levels earth-huge.png earth-huge_output_serial.png
+
+run-ocl:
+	./auto_levels_cl earth-huge.png earth-huge_output_ocl.png
+
+.PHONY: all clean test run

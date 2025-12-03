@@ -1,99 +1,87 @@
 #!/bin/bash
-#SBATCH --job-name=matrix_mul_benchmark_ifi
+#SBATCH --job-name=auto_levels_benchmark_ifi
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=10000
 #SBATCH --partition=IFIgpu2070
 #SBATCH --gres=gpu:1
 #SBATCH --time=01:00:00
-#SBATCH --output=matrix_mul_run.%j.out
-#SBATCH --error=matrix_mul_run.%j.err
+#SBATCH --output=auto_levels_run.%j.out
+#SBATCH --error=auto_levels_run.%j.err
 
-# Run all prebuilt matrix_mul binaries and collect results in CSV.
-# No compilation happens here — assumes all binaries are already built
-# e.g. by build_matrix_mul.sh in the same directory.
+# Build and run all auto_levels binaries and collect results in CSV.
 
 set -euo pipefail
 
-echo "[INFO] Starting matrix_mul benchmark job..."
+echo "[INFO] Starting auto_levels benchmark job..."
 echo "[INFO] Host: $(hostname)"
 echo "[INFO] Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "[INFO] Start time: $(date)"
 echo
 
 # --- config ---
-RESULTS="matrix_mul_results.csv"
-N_VALUES=(512 1024 2048 2000)
+RESULTS="auto_levels_results_rtx.csv"
+INPUT_IMAGE="earth-huge.png"
+OUTPUT_IMAGE_SERIAL="auto_levels_benchmark_serial_out.png"
+OUTPUT_IMAGE_OCL="auto_levels_benchmark_ocl_out.png"
 RUNS=10
 
-# --- cleanup old result / log files ---
-rm -f "$RESULTS" 2>/dev/null || true
-rm -f missing_binaries.log 2>/dev/null || true
+# Validate input exists
+if [[ ! -f "$INPUT_IMAGE" ]]; then
+  echo "[ERROR] Input image not found: $INPUT_IMAGE"
+  exit 1
+fi
 
-# --- CSV header (wie im lokalen Benchmark-Skript) ---
-# impl,precision,N,M,K,C00,elapsed_ms
-echo "impl,precision,N,M,K,C00,elapsed_ms" >"$RESULTS"
+# --- clean previous results ---
+[ -f build.log ] && rm build.log
+[ -f "$RESULTS" ] && rm "$RESULTS"
 
-# --- run loop ---
-for N in "${N_VALUES[@]}"; do
-  echo "[INFO] N=$N ($RUNS runs each binary)"
+# --- CSV header ---
+# impl:       serial, opencl
+# elapsed_ms: total time (time_ii: img in host-mem to modified img in host-mem)
+# time_ia:    gpu_cpu_time (includes time on cpu between the two kernels)
+# time_ib:    gpu_only_time
+echo "impl,elapsed_ms,time_ia,time_ib" >"$RESULTS"
 
-  ###################
-  # --- float ---
-  ###################
-  bin_float="./matrix_mul_N${N}_float"
-  echo "[INFO] Running OpenCL float binary for N=$N: $bin_float"
+# --- build binaries ---
+echo "[INFO] Building binaries"
 
-  if [[ ! -x "$bin_float" ]]; then
-    echo "[WARNING] Missing binary: $bin_float" | tee -a missing_binaries.log
-  else
-    for ((x = 1; x <= RUNS; x++)); do
-      out=$("$bin_float")
+if ! make all > build_temp.log 2>&1; then
+  echo "[ERROR] Build failed"
+  cat build_temp.log >> build.log
+  rm -f build_temp.log
+  exit 1
+fi
 
-      # Expect output: C[0,0] = <val>, time = <ms> ms
-      C00=$(printf '%s\n' "$out" | sed -n 's/^C\[0,0\] = \([0-9.eE+-]*\), time = .*/\1/p')
-      TMS=$(printf '%s\n' "$out" | sed -n 's/^C\[0,0\] = [0-9.eE+-]*, time = \([0-9.eE+-]*\) ms/\1/p')
+if grep -qi "warning" build_temp.log; then
+  echo "[WARNING] Build warnings"
+  cat build_temp.log >> build.log
+fi
+rm -f build_temp.log
 
-      if [[ -z "$C00" || -z "$TMS" ]]; then
-        echo "[ERROR] Failed to parse output of $bin_float:"
-        echo "$out"
-        exit 1
-      fi
+# --- run benchmark ---
+echo "[INFO] Running $RUNS iterations for each implementation"
 
-      echo "opencl,float,$N,$N,$N,$C00,$TMS" >>"$RESULTS"
-    done
+for ((x = 1; x <= RUNS; x++)); do
+  echo "[INFO] Run $x"
+  
+  if ! ./auto_levels "$INPUT_IMAGE" "$OUTPUT_IMAGE_SERIAL" >> "$RESULTS" 2>&1; then
+    echo "[ERROR] Serial version failed"
+    exit 1
   fi
-
-  #####################
-  # --- double ---
-  #####################
-  bin_double="./matrix_mul_N${N}_double"
-  echo "[INFO] Running OpenCL double binary for N=$N: $bin_double"
-
-  if [[ ! -x "$bin_double" ]]; then
-    echo "[WARNING] Missing binary: $bin_double" | tee -a missing_binaries.log
-  else
-    for ((x = 1; x <= RUNS; x++)); do
-      out=$("$bin_double")
-
-      C00=$(printf '%s\n' "$out" | sed -n 's/^C\[0,0\] = \([0-9.eE+-]*\), time = .*/\1/p')
-      TMS=$(printf '%s\n' "$out" | sed -n 's/^C\[0,0\] = [0-9.eE+-]*, time = \([0-9.eE+-]*\) ms/\1/p')
-
-      if [[ -z "$C00" || -z "$TMS" ]]; then
-        echo "[ERROR] Failed to parse output of $bin_double:"
-        echo "$out"
-        exit 1
-      fi
-
-      echo "opencl,double,$N,$N,$N,$C00,$TMS" >>"$RESULTS"
-    done
+  
+  if ! ./auto_levels_cl "$INPUT_IMAGE" "$OUTPUT_IMAGE_OCL" >> "$RESULTS" 2>&1; then
+    echo "[ERROR] OpenCL version failed"
+    exit 1
   fi
 done
 
-echo
-echo "[DONE] Results written to ${RESULTS}"
-if [[ -f missing_binaries.log ]]; then
-  echo "[NOTE] Some binaries were missing — see missing_binaries.log"
+# --- cleanup ---
+make clean
+
+echo "[DONE] Results written to $RESULTS"
+if [ -f build.log ]; then
+  echo "[NOTE] Warnings/errors logged to build.log"
 fi
 
 echo "[INFO] End time: $(date)"
