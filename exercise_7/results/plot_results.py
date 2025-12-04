@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns  # optional, nur für hübsches Styling
+from matplotlib.ticker import LogLocator, LogFormatter
 
 # -------------------------------------------------------
 # Konfiguration
@@ -12,14 +13,14 @@ import seaborn as sns  # optional, nur für hübsches Styling
 FILES = [
     "auto_levels_results_rtx.csv",
     "auto_levels_results_amd.csv",
-    "auto_levels_results_local.csv"
+    "auto_levels_results_local.csv",
 ]
 
 OUT_DIR = "plots"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 DEVICE_INFO = {
-    "local": "Local machine",
+    "local": "Local machine (RTX 2070 Laptop GPU)",
     "rtx": "IFI – RTX 2070",
     "amd": "IFI – AMD GPU",
 }
@@ -41,9 +42,18 @@ for f in FILES:
     df_part = pd.read_csv(f)
     df_part.columns = df_part.columns.str.strip()
 
-    # Device-Namen aus Dateinamen ableiten:
-    # "auto_levels_rtx.csv" -> "rtx"
-    dev = os.path.splitext(os.path.basename(f))[0].replace("auto_levels_", "")
+    # Dateiname -> Device:
+    # auto_levels_results_rtx.csv -> "rtx"
+    base = os.path.splitext(os.path.basename(f))[0]
+    if base.startswith("auto_levels_results_"):
+        dev = base.replace("auto_levels_results_", "")
+    elif base.startswith("auto_levels_"):
+        dev = base.replace("auto_levels_", "")
+    elif base.startswith("results_"):
+        dev = base.replace("results_", "")
+    else:
+        dev = base
+
     df_part["device"] = dev
 
     # Strings aufräumen
@@ -83,23 +93,19 @@ stats = (
 print("\nAggregated stats (elapsed_ms):")
 print(stats)
 
-
-# Hilfstabelle: für Speedup-Berechnung
-# => pivot: Zeilen = device, Spalten = impl, Wert = mean elapsed_ms
+# optional: Pivot für spätere Auswertungen
 pivot_mean = stats.pivot(index="device", columns="impl", values="mean")
+
 
 # -------------------------------------------------------
 # Plot: Balken serial vs opencl pro Device
 # -------------------------------------------------------
 
-def plot_serial_vs_opencl_bar():
+def plot_serial_vs_opencl_bar(log_y: bool = False):
     devices = sorted(stats["device"].unique())
-    impls = ["serial", "opencl"]  # Reihenfolge festlegen
-
     x = np.arange(len(devices))
     width = 0.35
 
-    # y-Werte (Mittelwerte) bauen
     means_serial = []
     means_opencl = []
     stds_serial = []
@@ -127,7 +133,7 @@ def plot_serial_vs_opencl_bar():
     ax = plt.gca()
 
     # Bars für serial & opencl
-    rects1 = ax.bar(
+    ax.bar(
         x - width / 2,
         means_serial,
         width,
@@ -135,7 +141,7 @@ def plot_serial_vs_opencl_bar():
         capsize=5,
         label="serial",
     )
-    rects2 = ax.bar(
+    ax.bar(
         x + width / 2,
         means_opencl,
         width,
@@ -150,7 +156,33 @@ def plot_serial_vs_opencl_bar():
     ax.set_xticklabels(labels, rotation=15, ha="right")
 
     ax.set_ylabel("Time (ms)")
-    ax.set_title("auto_levels – serial vs opencl (Mean ± Std)")
+
+    title = "auto_levels – serial vs opencl (Mean ± Std)"
+    if log_y:
+        title += " [log-scale]"
+    ax.set_title(title)
+
+    # -------- Log-Skala mit feingranularen Ticks + Grid --------
+    if log_y:
+        ax.set_yscale("log")
+
+        # Major-Ticks: 1·10^k
+        major_locator = LogLocator(base=10.0, subs=(1.0,), numticks=20)
+        # Minor-Ticks: 2–9·10^k
+        minor_locator = LogLocator(base=10.0, subs=tuple(range(2, 10)), numticks=100)
+        ax.yaxis.set_major_locator(major_locator)
+        ax.yaxis.set_minor_locator(minor_locator)
+
+        # Labels im Stil 1e1, 1e2, ...
+        ax.yaxis.set_major_formatter(LogFormatter(base=10.0, labelOnlyBase=False))
+
+        # horizontale Linien für Major + Minor
+        ax.yaxis.grid(True, which="major", linestyle="--", alpha=0.5)
+        ax.yaxis.grid(True, which="minor", linestyle=":", alpha=0.3)
+    else:
+        # Bei linearer Skala nur normale Gridlines
+        ax.yaxis.grid(True, which="major", linestyle="--", alpha=0.5)
+
     ax.legend()
 
     # Speedup (serial / opencl) als Text über den Bars
@@ -161,11 +193,13 @@ def plot_serial_vs_opencl_bar():
             continue
         speedup = s / o
 
-        # Position: oberhalb der höheren der beiden Bars
         h_max = max(s, o)
+        # Bei log-Skala lieber ein bisschen höher skalieren
+        y_text = h_max * (1.2 if log_y else 1.03)
+
         ax.text(
             x[i],
-            h_max * 1.03,
+            y_text,
             f"×{speedup:.1f}",
             ha="center",
             va="bottom",
@@ -174,5 +208,22 @@ def plot_serial_vs_opencl_bar():
         )
 
     plt.tight_layout()
-    out_path = os.path.join(OUT_DIR, "auto_levels_serial_vs_opencl.png")
+    suffix = "_logy" if log_y else ""
+    out_path = os.path.join(OUT_DIR, f"auto_levels_serial_vs_opencl{suffix}.png")
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Saved plot: {out_path}")
+
+
+# -------------------------------------------------------
+# Main
+# -------------------------------------------------------
+
+if __name__ == "__main__":
+    # normaler Plot (linear)
+    plot_serial_vs_opencl_bar(log_y=False)
+    # feingranularer Log-Plot mit 1–10 pro Dekade
+    plot_serial_vs_opencl_bar(log_y=True)
+
+    print(f"\nAll plots generated in '{OUT_DIR}' directory.")
+
