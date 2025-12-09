@@ -17,18 +17,15 @@ SUFFIX:=$(SUFFIX)_float
 endif
 
 ifeq ($(OS),Windows_NT)
-CLEAN=del /Q scan_sequential*.exe scan_opencl*.exe
+CLEAN=del /Q scan*.exe
 else
-CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(scan_sequential|scan_opencl)?(_N[0-9]+)?(_float)?" -delete
+CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(scan)?(_N[0-9]+)?(_float)?" -delete
 endif
 
-all: scan_sequential$(SUFFIX) scan_opencl$(SUFFIX)
+all: scan$(SUFFIX)
 
-scan_sequential$(SUFFIX): scan.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=1
-
-scan_opencl$(SUFFIX): scan.c $(SRC) $(DEPS)
-	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DVERSION=2
+scan$(SUFFIX): scan.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
 
 clean:
 	$(CLEAN)

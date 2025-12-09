@@ -14,10 +14,6 @@
 #define N 1024
 #endif
 
-#ifndef VERSION
-#define VERSION 1
-#endif
-
 #ifdef FLOAT
 #define VALUE float
 #define ZERO (0.0f)
@@ -58,21 +54,7 @@ int compareArrays(const VALUE* arr1, const VALUE* arr2, size_t size) {
 	return 1;
 }
 
-// ========== Print array helper ==========
-void printArray(const VALUE* arr, size_t size, const char* name) {
-	printf("%s: [", name);
-	size_t print_limit = size < 10 ? size : 10;
-	for(size_t i = 0; i < print_limit; i++) {
-		printf(PRINT_FMT, arr[i]);
-		if(i < print_limit - 1) printf(", ");
-	}
-	if(size > 10) printf(", ...");
-	printf("]\n");
-}
-
 int main(void) {
-	printf("=== Inclusive Scan Test (N=%d) ===\n", N);
-
 	// ========== Initialize arrays ==========
 	VALUE* input = (VALUE*)malloc(sizeof(VALUE) * N);
 	VALUE* output_sequential = (VALUE*)malloc(sizeof(VALUE) * N);
@@ -91,24 +73,16 @@ int main(void) {
 #endif
 	}
 
-	printArray(input, N, "Input");
-
-#if VERSION == 1
-	// ========== Sequential Version ==========
+	// ========== Sequential Version -> Compute result for validation ==========
 	printf("\n--- Sequential Inclusive Scan ---\n");
 	const double start_time = omp_get_wtime();
 	inclusiveScan(input, output_sequential, N);
-	const double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
+	double elapsed_ms = (omp_get_wtime() - start_time) * 1000.0;
 
-	printArray(output_sequential, N, "Output");
-	printf("Time: %.3f ms\n", elapsed_ms);
+	printf("Sequential Time: %.3f ms\n", elapsed_ms);
 
-#else
 	// ========== OpenCL Version (Hillis & Steele) ==========
 	printf("\n--- OpenCL Inclusive Scan (Hillis & Steele) ---\n");
-
-	// Compute reference result
-	inclusiveScan(input, output_sequential, N);
 
 	// Initialize OpenCL
 	clu_env env;
@@ -216,18 +190,17 @@ int main(void) {
 	cl_event event_phase3;
 	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel_add, 1, NULL, &global_work_size, &local_work_size, 0, NULL, &event_phase3));
 
-	// Get timing information (total time for both phases)
+	// Get timing information (total time from phase 1 to phase 3)
 	CLU_ERRCHECK(clWaitForEvents(1, &event_phase3));
 	cl_ulong start, end;
 	CLU_ERRCHECK(clGetEventProfilingInfo(event_phase1, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL));
 	CLU_ERRCHECK(clGetEventProfilingInfo(event_phase3, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL));
-	const double elapsed_ms = (double)((end - start) * 1e-6);
+	elapsed_ms = (double)((end - start) * 1e-6);
 
 	// Read result back
 	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_output, CL_TRUE, 0, bytes, output_opencl, 0, NULL, NULL));
 
-	printArray(output_opencl, N, "Output");
-	printf("Time: %.3f ms\n", elapsed_ms);
+	printf("OpenCL Time: %.3f ms\n", elapsed_ms);
 
 	// Validate result
 	printf("\n--- Validation ---\n");
@@ -235,8 +208,6 @@ int main(void) {
 		printf("PASSED: OpenCL result matches sequential result\n");
 	} else {
 		printf("FAILED: Results do not match\n");
-		printArray(output_sequential, N, "Expected");
-		printArray(output_opencl, N, "Got");
 	}
 
 	// Cleanup
@@ -256,7 +227,6 @@ int main(void) {
 	free(output_opencl);
 	free(block_sums_host);
 	free(block_sums_scanned);
-#endif
 
 	free(input);
 	free(output_sequential);
