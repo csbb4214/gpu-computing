@@ -17,7 +17,7 @@ __kernel void hillis_steele_scan(__global VALUE* g_odata, __global VALUE* g_idat
 	int pout = 0;
 	int pin = 1;
 
-	// Load input into local memory (INCLUSIVE scan)
+	// Load input into local memory
 	if(global_id < n) {
 		temp[local_id] = g_idata[global_id];
 	} else {

@@ -176,7 +176,7 @@ int main(void) {
 	// Read block sums
 	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_block_sums, CL_TRUE, 0, sizeof(VALUE) * num_groups, block_sums_host, 0, NULL, NULL));
 
-	// Phase 2: Scan the block sums on CPU (for simplicity)
+	// Phase 2: Scan the block sums on CPU
 	inclusiveScan(block_sums_host, block_sums_scanned, num_groups);
 
 	// Write scanned block sums back
