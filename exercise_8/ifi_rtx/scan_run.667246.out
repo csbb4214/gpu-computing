@@ -1,0 +1,14 @@
+[INFO] Host: gc1
+[INFO] Date: Wed Dec 10 15:35:02 CET 2025
+[INFO] RUNS=10
+[INFO] SIZES=1024 1048576 536870912
+[INFO] Writing CSV: scan_benchmark_int_rtx.csv
+
+[INFO] Running 10 iterations for N=1024 (int)
+
+[INFO] Running 10 iterations for N=1048576 (int)
+
+[INFO] Running 10 iterations for N=536870912 (int)
+
+[DONE] RTX benchmark finished
+[DONE] CSV: scan_benchmark_int_rtx.csv

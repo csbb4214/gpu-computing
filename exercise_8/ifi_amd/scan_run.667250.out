@@ -1,0 +1,17 @@
+[INFO] Host: gc20
+[INFO] Date: Wed Dec 10 15:42:12 CET 2025
+[INFO] RUNS=10
+[INFO] SIZES=1024 1048576 536870912
+[INFO] Writing CSV: scan_benchmark_int_amd.csv
+
+[INFO] Building for N=1024 (int)
+[INFO] Running 10 iterations for N=1024
+
+[INFO] Building for N=1048576 (int)
+[INFO] Running 10 iterations for N=1048576
+
+[INFO] Building for N=536870912 (int)
+[INFO] Running 10 iterations for N=536870912
+
+[DONE] AMD benchmark finished
+[DONE] CSV: scan_benchmark_int_amd.csv
