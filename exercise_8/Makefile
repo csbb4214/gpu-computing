@@ -22,10 +22,13 @@ else
 CLEAN=find . -executable -type f -regextype posix-egrep -regex "./(scan)?(_N[0-9]+)?(_float)?" -delete
 endif
 
-all: scan$(SUFFIX)
+all: scan$(SUFFIX) scan_opt$(SUFFIX)
 
 scan$(SUFFIX): scan.c $(SRC) $(DEPS)
 	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS)
+
+scan_opt$(SUFFIX): scan.c $(SRC) $(DEPS)
+	$(CC) -o $@ $< $(SRC) $(CFLAGS) $(LDFLAGS) $(LIBS) $(FLAGS) -DOPT
 
 clean:
 	$(CLEAN)

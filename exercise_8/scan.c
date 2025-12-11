@@ -81,8 +81,13 @@ int main(void) {
 
 	printf("Sequential Time: %.3f ms\n", elapsed_ms);
 
-	// ========== OpenCL Version (Hillis & Steele) ==========
+	// ========== OpenCL Version ==========
+
+#ifndef OPT
 	printf("\n--- OpenCL Inclusive Scan (Hillis & Steele) ---\n");
+#else
+	printf("\n--- OpenCL Inclusive Scan (Optimized) ---\n");
+#endif
 
 	// Initialize OpenCL
 	clu_env env;
@@ -106,9 +111,17 @@ int main(void) {
 	}
 
 #ifdef FLOAT
+#ifdef OPT
+	const char* options = "-DFLOAT=1 -DOPT=1";
+#else
 	const char* options = "-DFLOAT=1";
+#endif
+#else
+#ifdef OPT
+	const char* options = "-DOPT=1";
 #else
 	const char* options = NULL;
+#endif
 #endif
 	cl_program program = clu_create_program(env.context, env.device_id, source_str, source_size, options);
 	if(program == NULL) {
@@ -120,20 +133,32 @@ int main(void) {
 	}
 
 	cl_int err = CL_SUCCESS;
+#ifdef OPT
+	cl_kernel kernel_scan = clCreateKernel(program, "improved_scan", &err);
+	CLU_ERRCHECK(err);
+#else
 	cl_kernel kernel_scan = clCreateKernel(program, "hillis_steele_scan", &err);
 	CLU_ERRCHECK(err);
+#endif
 	cl_kernel kernel_add = clCreateKernel(program, "add_block_sums", &err);
 	CLU_ERRCHECK(err);
 
 	// Setup kernel parameters
 	const size_t bytes = sizeof(VALUE) * N;
 	const size_t local_work_size = 256;
+#ifdef OPT
+	const size_t elements_per_thread = 2;
+	const size_t elements_per_block = local_work_size * elements_per_thread;
+	const size_t num_blocks = (N + elements_per_block - 1) / elements_per_block;
+	const size_t global_work_size = num_blocks * local_work_size;
+#else
 	const size_t global_work_size = ((N + local_work_size - 1) / local_work_size) * local_work_size;
-	const size_t num_groups = global_work_size / local_work_size;
+	const size_t num_blocks = global_work_size / local_work_size;
+#endif
 
 	VALUE* output_opencl = (VALUE*)malloc(sizeof(VALUE) * N);
-	VALUE* block_sums_host = (VALUE*)malloc(sizeof(VALUE) * num_groups);
-	VALUE* block_sums_scanned = (VALUE*)malloc(sizeof(VALUE) * num_groups);
+	VALUE* block_sums_host = (VALUE*)malloc(sizeof(VALUE) * num_blocks);
+	VALUE* block_sums_scanned = (VALUE*)malloc(sizeof(VALUE) * num_blocks);
 	if(!output_opencl || !block_sums_host || !block_sums_scanned) {
 		fprintf(stderr, "malloc failed!\n");
 		CLU_ERRCHECK(clReleaseKernel(kernel_scan));
@@ -154,9 +179,9 @@ int main(void) {
 	CLU_ERRCHECK(err);
 	cl_mem buf_output = clCreateBuffer(env.context, CL_MEM_READ_WRITE, bytes, NULL, &err);
 	CLU_ERRCHECK(err);
-	cl_mem buf_block_sums = clCreateBuffer(env.context, CL_MEM_READ_WRITE, sizeof(VALUE) * num_groups, NULL, &err);
+	cl_mem buf_block_sums = clCreateBuffer(env.context, CL_MEM_READ_WRITE, sizeof(VALUE) * num_blocks, NULL, &err);
 	CLU_ERRCHECK(err);
-	cl_mem buf_block_sums_scanned = clCreateBuffer(env.context, CL_MEM_READ_ONLY, sizeof(VALUE) * num_groups, NULL, &err);
+	cl_mem buf_block_sums_scanned = clCreateBuffer(env.context, CL_MEM_READ_ONLY, sizeof(VALUE) * num_blocks, NULL, &err);
 	CLU_ERRCHECK(err);
 
 	// Write data to device
@@ -167,20 +192,25 @@ int main(void) {
 	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 0, sizeof(cl_mem), &buf_output));
 	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 1, sizeof(cl_mem), &buf_input));
 	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 2, sizeof(cl_int), &n));
+#ifdef OPT
+	const size_t local_mem_size = (local_work_size * 2 + ((local_work_size * 2) >> 5)) * sizeof(VALUE);
+	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 3, local_mem_size, NULL));
+#else
 	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 3, 2 * local_work_size * sizeof(VALUE), NULL));
+#endif
 	CLU_ERRCHECK(clSetKernelArg(kernel_scan, 4, sizeof(cl_mem), &buf_block_sums));
 
 	cl_event event_phase1;
 	CLU_ERRCHECK(clEnqueueNDRangeKernel(env.command_queue, kernel_scan, 1, NULL, &global_work_size, &local_work_size, 0, NULL, &event_phase1));
 
 	// Read block sums
-	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_block_sums, CL_TRUE, 0, sizeof(VALUE) * num_groups, block_sums_host, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueReadBuffer(env.command_queue, buf_block_sums, CL_TRUE, 0, sizeof(VALUE) * num_blocks, block_sums_host, 0, NULL, NULL));
 
 	// Phase 2: Scan the block sums on CPU
-	inclusiveScan(block_sums_host, block_sums_scanned, num_groups);
+	inclusiveScan(block_sums_host, block_sums_scanned, num_blocks);
 
 	// Write scanned block sums back
-	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_block_sums_scanned, CL_TRUE, 0, sizeof(VALUE) * num_groups, block_sums_scanned, 0, NULL, NULL));
+	CLU_ERRCHECK(clEnqueueWriteBuffer(env.command_queue, buf_block_sums_scanned, CL_TRUE, 0, sizeof(VALUE) * num_blocks, block_sums_scanned, 0, NULL, NULL));
 
 	// Phase 3: Add block sums to all elements
 	CLU_ERRCHECK(clSetKernelArg(kernel_add, 0, sizeof(cl_mem), &buf_output));
