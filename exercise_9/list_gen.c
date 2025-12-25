@@ -5,7 +5,7 @@
 
 int main(int argc, char* args[]) {
     if(argc < 2) {
-        fprintf(stderr, "Usage: %s N [seed] [out.csv]\n", args[0]);
+        fprintf(stderr, "Usage: %s N [seed]\n", args[0]);
         return EXIT_FAILURE;
     }
 
@@ -22,7 +22,7 @@ int main(int argc, char* args[]) {
     for(long i = 0; i < N; ++i) {
         gen_name(p.name);
         p.age = rand() % (MAX_AGE + 1);
-        printf("\"%s\",%d\n", p.name, p.age);
+        printf("%d | %s\n", p.age, p.name);
     }
 
     return EXIT_SUCCESS;
