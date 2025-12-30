@@ -18,56 +18,55 @@ int main(int argc, char *argv[]) {
     unsigned seed = (argc >= 3)
         ? (unsigned)strtoul(argv[2], NULL, 10)
         : (unsigned)time(NULL);
+
     srand(seed);
 
-    /* 1) Liste erzeugen */
-    person_t *list = malloc(N * sizeof(person_t));
-    if (!list) {
+    /* ---------- A: Liste erzeugen ---------- */
+    person_t *A = malloc(N * sizeof(person_t));
+    person_t *B = malloc(N * sizeof(person_t));
+    if (!A || !B) {
         perror("malloc");
         return EXIT_FAILURE;
     }
 
     for (long i = 0; i < N; ++i) {
-        gen_name(list[i].name);
-        list[i].age = rand() % (MAX_AGE + 1);
+        gen_name(A[i].name);
+        A[i].age = rand() % (MAX_AGE + 1);
     }
 
-    /* Unsortierte Ausgabe */
     printf("Unsorted:\n");
     for (long i = 0; i < N; ++i) {
-        printf("%3d | %s\n", list[i].age, list[i].name);
+        printf("%3d | %s\n", A[i].age, A[i].name);
     }
 
-    /* 2) Countsort */
-    int count[MAX_AGE + 1] = {0};
-
+    /* ---------- (1) Histogramm ---------- */
+    int C[MAX_AGE + 1] = {0};
     for (long i = 0; i < N; ++i) {
-        count[list[i].age]++;
+        C[A[i].age]++;
     }
 
-    person_t *sorted = malloc(N * sizeof(person_t));
-    if (!sorted) {
-        perror("malloc");
-        free(list);
-        return EXIT_FAILURE;
-    }
-
-    int index = 0;
+    /* ---------- (2) Prefix-Sum ---------- */
+    int sum = 0;
     for (int age = 0; age <= MAX_AGE; ++age) {
-        for (long i = 0; i < N; ++i) {
-            if (list[i].age == age) {
-                sorted[index++] = list[i];
-            }
-        }
+        int tmp = C[age];
+        C[age] = sum;
+        sum += tmp;
     }
 
-    /* Sortierte Ausgabe */
+    /* ---------- (3) Sortiertes Einfügen ---------- */
+    for (long i = 0; i < N; ++i) {
+        int age = A[i].age;
+        int pos = C[age];
+        B[pos] = A[i];
+        C[age]++;
+    }
+
     printf("\nSorted:\n");
     for (long i = 0; i < N; ++i) {
-        printf("%3d | %s\n", sorted[i].age, sorted[i].name);
+        printf("%3d | %s\n", B[i].age, B[i].name);
     }
 
-    free(list);
-    free(sorted);
+    free(A);
+    free(B);
     return EXIT_SUCCESS;
 }
