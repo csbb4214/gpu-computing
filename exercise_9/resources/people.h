@@ -19,8 +19,8 @@ typedef struct {
 // Name Generation ------------------------------------------------------------
 
 #define BUF_SIZE 16
-#define FIRST_NAMES_FILE "first_names.txt"
-#define LAST_NAMES_FILE "last_names.txt"
+#define FIRST_NAMES_FILE "resources/first_names.txt"
+#define LAST_NAMES_FILE "resources/last_names.txt"
 
 int count_lines(const char *filename) {
 	int lines = 0;

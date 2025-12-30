@@ -18,7 +18,6 @@ int main(int argc, char *argv[]) {
     unsigned seed = (argc >= 3)
         ? (unsigned)strtoul(argv[2], NULL, 10)
         : (unsigned)time(NULL);
-
     srand(seed);
 
     for (long i = 0; i < N; ++i) {
