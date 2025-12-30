@@ -18,10 +18,9 @@ int main(int argc, char *argv[]) {
     unsigned seed = (argc >= 3)
         ? (unsigned)strtoul(argv[2], NULL, 10)
         : (unsigned)time(NULL);
-
     srand(seed);
 
-    /* ---------- A: Liste erzeugen ---------- */
+    /* ---------- Generate/print unsorted list ---------- */
     person_t *A = malloc(N * sizeof(person_t));
     person_t *B = malloc(N * sizeof(person_t));
     if (!A || !B) {
@@ -39,7 +38,7 @@ int main(int argc, char *argv[]) {
         printf("%3d | %s\n", A[i].age, A[i].name);
     }
 
-    /* ---------- (1) Histogramm ---------- */
+    /* ---------- (1) Histogram ---------- */
     int C[MAX_AGE + 1] = {0};
     for (long i = 0; i < N; ++i) {
         C[A[i].age]++;
@@ -53,7 +52,7 @@ int main(int argc, char *argv[]) {
         sum += tmp;
     }
 
-    /* ---------- (3) Sortiertes Einfügen ---------- */
+    /* ---------- (3) Sorted Insertion ---------- */
     for (long i = 0; i < N; ++i) {
         int age = A[i].age;
         int pos = C[age];
