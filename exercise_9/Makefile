@@ -1,24 +1,32 @@
 CC = gcc
 
-OPENCL_LIB = -lOpenCL
-
 CFLAGS = -Wall -Wextra -O2 -std=c11 -fopenmp
 INCLUDES = -I.
 
-TARGET = list_sort_ocl
+OPENCL_LIB = -lOpenCL
 
-SRCS = list_sort_ocl.c clu_setup.c
-OBJS = $(SRCS:.c=.o)
+TARGET_CPU = list_sort
+TARGET_OCL = list_sort_ocl
 
-all: $(TARGET)
+CPU_SRCS = list_sort.c
+OCL_SRCS = list_sort_ocl.c clu_setup.c    # <- clu_errcheck.c entfernt
 
-$(TARGET): $(OBJS)
+CPU_OBJS = $(CPU_SRCS:.c=.o)
+OCL_OBJS = $(OCL_SRCS:.c=.o)
+
+all: $(TARGET_CPU) $(TARGET_OCL)
+
+$(TARGET_CPU): $(CPU_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(TARGET_OCL): $(OCL_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(OPENCL_LIB)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(CPU_OBJS) $(OCL_OBJS) $(TARGET_CPU) $(TARGET_OCL)
 
 .PHONY: all clean
+
