@@ -170,58 +170,6 @@ def plot_matrix_mul_simple(buckets, Ns):
     fig.savefig(out_file, dpi=200, bbox_inches='tight')
     print(f"[DONE] Wrote {out_file}")
 
-# ---------- Plot 2: Improvement factors ----------
-
-def plot_improvement(improvements, Ns, platforms):
-    _apply_style()
-    fig, ax = plt.subplots(figsize=(12,6))
-    positions, data, box_colors, labels = [], [], [], []
-    colors = {"AMD":"#2ecc71","NVIDIA":"#f39c12"}
-    group_gap = 2.0
-    box_width = 0.4
-
-    for i, N in enumerate(Ns):
-        base = i*group_gap
-        for j, platform in enumerate(platforms):
-            for prec in ["float","double"]:
-                vals = improvements.get((platform, N, prec), [])
-                if not vals: continue
-                pos = base + j*box_width
-                positions.append(pos)
-                data.append(vals)
-                box_colors.append(colors[platform])
-                labels.append(f"{platform} {prec}")
-
-    if data:
-        bp = ax.boxplot(data, positions=positions, widths=box_width*0.9,
-                        showfliers=True, showmeans=True, meanline=True, patch_artist=True)
-        for patch, color in zip(bp['boxes'], box_colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.6)
-        if SHOW_POINTS:
-            _add_jitter_points(ax, data, positions)
-
-    tick_positions = [i*group_gap + (len(platforms)-1)*box_width/2 for i in range(len(Ns))]
-    ax.set_xticks(tick_positions)
-    ax.set_xticklabels([str(n) for n in Ns])
-    ax.set_xlabel("Matrix size N")
-    ax.set_ylabel("Improvement Factor")
-    ax.set_title("Optimization Improvement: Original / Optimized")
-    ax.axhline(y=1, color='red', linestyle='--', alpha=0.5)
-    ax.grid(True, alpha=0.3)
-    # Legend
-    seen = set()
-    legend_elements = []
-    for lbl, col in zip(labels, box_colors):
-        if lbl not in seen:
-            legend_elements.append(Patch(facecolor=col, alpha=0.6, label=lbl))
-            seen.add(lbl)
-    ax.legend(handles=legend_elements, loc='upper left', fontsize=8)
-    fig.tight_layout()
-    out_file = os.path.join(PLOTS_DIR,"boxplots_improvement.png")
-    fig.savefig(out_file, dpi=200)
-    print(f"[DONE] Wrote {out_file}")
-
 # ---------- Plot 3: GFLOPS vs HW Peak (separate plots) ----------
 
 def plot_gflops_vs_hw_separate(buckets, Ns, platforms, hw_peak_gflops):
