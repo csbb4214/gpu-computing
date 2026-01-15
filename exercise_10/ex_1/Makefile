@@ -1,20 +1,31 @@
-CC=gcc
-CFLAGS=-std=c17 -I. -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -O3
-LIBS=-lOpenCL -lgomp
+CC = gcc
+CFLAGS = -std=c17 -O3 -Wall -Wextra -Wpedantic -DCL_TARGET_OPENCL_VERSION=300 -I.
+LIBS = -lOpenCL -lgomp
 
-FLAGS=
-SUFFIX=
-ifdef N
-FLAGS+=-DN=$(N)
-SUFFIX:=_N$(N)
-endif
+# Matrixgrößen
+NS = 512 1024 2000 2048
 
-all: matrix_mul$(SUFFIX)
+# Binaries
+FLOAT_BINS  = $(foreach N,$(NS),matrix_mul_N$(N)_float)
+DOUBLE_BINS = $(foreach N,$(NS),matrix_mul_N$(N)_double)
 
-matrix_mul$(SUFFIX): matrix_mul.c $(DEPS)
-	$(CC) -o $@ $< $(CFLAGS) $(LIBS) $(FLAGS)
+# Source files
+SRC = matrix_mul.c clu_setup.c
+
+all: $(FLOAT_BINS) $(DOUBLE_BINS)
+
+# Float
+matrix_mul_N%_float: $(SRC) clu_errcheck.h clu_setup.h
+	$(CC) $(SRC) -o $@ $(CFLAGS) $(LIBS) -DN=$*
+
+# Double
+matrix_mul_N%_double: $(SRC) clu_errcheck.h clu_setup.h
+	$(CC) $(SRC) -o $@ $(CFLAGS) $(LIBS) -DUSE_DOUBLE -DN=$*
 
 clean:
-	find . -executable -type f -regextype posix-egrep -regex "./matrix_mul(_omp)?(_N[0-9]+)?" -delete
+	rm -f matrix_mul_N*_*
+	rm -f matrix_mul_*.err matrix_mul_*.out
+	rm -f matrix_mul_results_*.csv
 
 .PHONY: all clean
+

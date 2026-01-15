@@ -1,35 +1,75 @@
 #ifdef cl_khr_fp64
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#else
-/* cl_khr_fp64 is not available; double-precision kernel will be excluded. */
 #endif
+
+#define TSX 16
+#define TSY 16
 
 #ifdef cl_khr_fp64
-__kernel void matrix_mul_double(const __global double* A, const __global double* B, __global double* C, const int M, const int K) {
-	int row = get_global_id(0); // Row index in C
-	int col = get_global_id(1); // Column index in C
+__kernel void matrix_mul_tiled_double(
+    __global const double* A,
+    __global const double* B,
+    __global double* C,
+    const int M,
+    const int K)
+{
+    __local double Asub[TSX][TSY];
+    __local double Bsub[TSX][TSY];
 
-	double sum = 0.0f;
-	for(int k = 0; k < M; ++k) {
-		double a = A[row * M + k]; // A[row][k]
-		double b = B[k * K + col]; // B[k][col]
-		sum += a * b;
-	}
+    int row = get_global_id(0);
+    int col = get_global_id(1);
+    double sum = 0.0;
 
-	C[row * K + col] = sum; // C[row][col] = sum
+    for(int t = 0; t < (M + TSX - 1) / TSX; t++) {
+        int tiledColA = t*TSX + get_local_id(1);
+        int tiledRowB = t*TSX + get_local_id(0);
+
+        Asub[get_local_id(0)][get_local_id(1)] = (row < M && tiledColA < M) ? A[row*M + tiledColA] : 0.0;
+        Bsub[get_local_id(0)][get_local_id(1)] = (tiledRowB < M && col < K) ? B[tiledRowB*K + col] : 0.0;
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for(int k = 0; k < TSY; k++)
+            sum += Asub[get_local_id(0)][k] * Bsub[k][get_local_id(1)];
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if(row < M && col < K)
+        C[row*K + col] = sum;
 }
 #endif
 
-__kernel void matrix_mul_float(const __global float* A, const __global float* B, __global float* C, const int M, const int K) {
-	int row = get_global_id(0); // Row index in C
-	int col = get_global_id(1); // Column index in C
+__kernel void matrix_mul_tiled_float(
+    __global const float* A,
+    __global const float* B,
+    __global float* C,
+    const int M,
+    const int K)
+{
+    __local float Asub[TSX][TSY];
+    __local float Bsub[TSX][TSY];
 
-	float sum = 0.0f;
-	for(int k = 0; k < M; ++k) {
-		float a = A[row * M + k]; // A[row][k]
-		float b = B[k * K + col]; // B[k][col]
-		sum += a * b;
-	}
+    int row = get_global_id(0);
+    int col = get_global_id(1);
+    float sum = 0.0f;
 
-	C[row * K + col] = sum; // C[row][col] = sum
+    for(int t = 0; t < (M + TSX - 1) / TSX; t++) {
+        int tiledColA = t*TSX + get_local_id(1);
+        int tiledRowB = t*TSX + get_local_id(0);
+
+        Asub[get_local_id(0)][get_local_id(1)] = (row < M && tiledColA < M) ? A[row*M + tiledColA] : 0.0f;
+        Bsub[get_local_id(0)][get_local_id(1)] = (tiledRowB < M && col < K) ? B[tiledRowB*K + col] : 0.0f;
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for(int k = 0; k < TSY; k++)
+            sum += Asub[get_local_id(0)][k] * Bsub[k][get_local_id(1)];
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if(row < M && col < K)
+        C[row*K + col] = sum;
 }
+
